@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全能 PDF & 图片极客工具箱 (支持拖拽/排序/压缩)</title>
+    <title>超级 PDF 极客工具箱 (渲染修复版)</title>
     <!-- 引入 pdf-lib 与 pdfjs-dist -->
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
@@ -89,15 +89,14 @@
             gap: 12px;
         }
         .setting-item { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: #334155; }
-        .setting-item select {
-            padding: 6px 12px;
+        .setting-item select, .setting-item input {
+            padding: 6px 10px;
             border-radius: 8px;
             border: 1px solid #cbd5e1;
             font-size: 13px;
             outline: none;
         }
 
-        /* 可拖拽缩略图网格 */
         .thumb-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -121,7 +120,6 @@
             cursor: grab;
             user-select: none;
         }
-        .thumb-card:active { cursor: grabbing; }
         .thumb-card.dragging { opacity: 0.4; border-style: dashed; }
         .thumb-card.selected { border-color: #2563eb; background: #f0f9ff; }
         
@@ -176,12 +174,15 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 14px;
+            padding: 12px 14px;
             border-bottom: 1px solid #f1f5f9;
             background: white;
             font-size: 13.5px;
+            gap: 12px;
         }
         .file-item:last-child { border-bottom: none; }
+        .file-info { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .file-controls { display: flex; align-items: center; gap: 10px; }
         .file-badge { font-size: 11px; padding: 2px 6px; border-radius: 10px; background: #e0f2fe; color: #0369a1; }
 
         .btn {
@@ -198,6 +199,7 @@
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-icon { background: none; border: none; cursor: pointer; padding: 2px 4px; font-size: 13px; }
 
+        .toolbar-inline { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .empty-tip { text-align: center; padding: 20px; color: #94a3b8; font-size: 13px; grid-column: 1 / -1; }
     </style>
 </head>
@@ -205,64 +207,69 @@
 
 <div class="card">
     <div class="nav-tabs">
-        <button class="tab-btn active" onclick="switchTab('merge')">📚 顺序拼接 (支持拖拽排序/压缩)</button>
-        <button class="tab-btn" onclick="switchTab('alt')">🔀 交替合并</button>
+        <button class="tab-btn active" onclick="switchTab('merge')">📚 顺序拼接与重排</button>
+        <button class="tab-btn" onclick="switchTab('alt')">🔀 高级交替/自定义合并</button>
         <button class="tab-btn" onclick="switchTab('split')">✂️ 提取与旋转</button>
     </div>
 
-    <!-- 全局压缩模式与状态提示 -->
     <div class="settings-bar">
         <div class="setting-item">
-            <label>⚡ PDF 导出压缩度：</label>
+            <label>⚡ PDF 压缩模式：</label>
             <select id="compress-mode">
-                <option value="none">原画质导出 (无损/全高清)</option>
-                <option value="medium" selected>智能压缩瘦身 (推荐，兼顾体积与清晰度)</option>
-                <option value="high">极限压缩 (大幅减小体积)</option>
+                <option value="none">原画质 (无损)</option>
+                <option value="medium" selected>智能瘦身 (推荐)</option>
             </select>
         </div>
         <div class="setting-item" id="status-info" style="color: #2563eb; font-weight: 500; font-size: 12px;">已就绪</div>
     </div>
 
-    <!-- ==================== 页面 1：顺序拼接 + 自由拖拽排序 ==================== -->
+    <!-- TAB 1：顺序拼接 -->
     <div id="page-merge" class="tab-content active">
-        <h2>顺序拼接与可视化排序网格</h2>
-        <div class="subtitle">💡 提示：您可以按住卡片直接<strong>拖拽移动位置</strong>，或者点击 ⬅️ ➡️ 按钮微调页面顺序</div>
+        <h2>顺序拼接与可视化排序</h2>
+        <div class="subtitle">拖拽卡片或点击 ⬅️ ➡️ 微调位置，自动生成优化后的新文档</div>
 
         <div class="upload-area" onclick="document.getElementById('input-seq').click()">
             <div class="upload-icon">🖼️📄</div>
-            <div>点击或拖拽追加上传 PDF 或 JPG/PNG 图片</div>
+            <div>点击或拖拽追加上传 PDF 或图片</div>
             <input type="file" id="input-seq" accept=".pdf,image/jpeg,image/png" multiple onchange="handleSeqUpload(this.files)">
         </div>
 
-        <!-- 可拖拽缩略图网格容器 -->
-        <div id="thumb-grid-seq" class="thumb-grid"><div class="empty-tip">暂无页面预览，请上传文件</div></div>
-
-        <button class="btn btn-primary" id="btn-seq" disabled onclick="processSequence()">按当前顺序导出新 PDF</button>
+        <div id="thumb-grid-seq" class="thumb-grid"><div class="empty-tip">暂无页面，请先上传</div></div>
+        <button class="btn btn-primary" id="btn-seq" disabled onclick="processSequence()">导出合并文件</button>
     </div>
 
-    <!-- ==================== 页面 2：交替合并 ==================== -->
+    <!-- TAB 2：高级交替合并 -->
     <div id="page-alt" class="tab-content">
-        <h2>交替穿插合并</h2>
-        <div class="subtitle">从每个文件轮流抽取 1 页进行交叉排列（如正反面扫描件）</div>
+        <h2>高级交替与自定义规则合并</h2>
+        <div class="subtitle">支持多文件灵活交替（如：文档 A 抽 2 页，文档 B 抽 1 页）以及自定义页码范围</div>
 
         <div class="upload-area" onclick="document.getElementById('input-alt').click()">
             <div class="upload-icon">🔀</div>
-            <div>上传 2 个或以上 PDF</div>
+            <div>上传 2 个或以上需要合并的 PDF</div>
             <input type="file" id="input-alt" accept=".pdf" multiple onchange="handleAltUpload(this.files)">
         </div>
+
         <div id="list-alt" class="file-list"><div class="empty-tip">未添加文件</div></div>
-        <button class="btn btn-primary" id="btn-alt" disabled onclick="processAlternate()">开始交替合并</button>
+        <button class="btn btn-primary" id="btn-alt" disabled onclick="processAlternate()">开始规则合并导出</button>
     </div>
 
-    <!-- ==================== 页面 3：提取与旋转 ==================== -->
+    <!-- TAB 3：提取与旋转 -->
     <div id="page-split" class="tab-content">
-        <h2>可视拆分与单页旋转</h2>
-        <div class="subtitle">勾选保留页面，点击 🔄 纠正方向</div>
+        <h2>可视拆分与旋转</h2>
+        <div class="subtitle">针对单个 PDF 精细化提取页面，解决方向倒置问题</div>
 
         <div class="upload-area" onclick="document.getElementById('input-split').click()">
             <div class="upload-icon">✂️</div>
-            <div>上传单个需要拆分的 PDF</div>
+            <div>上传单个 PDF 进行拆分处理</div>
             <input type="file" id="input-split" accept=".pdf" onchange="handleSplitUpload(this.files[0])">
+        </div>
+
+        <div class="toolbar-inline" id="split-tools" style="display: none;">
+            <div>
+                <button class="btn-mini" onclick="selectAllSplit(true)">全选</button>
+                <button class="btn-mini" onclick="selectAllSplit(false)">全不选</button>
+            </div>
+            <span id="split-count-tip" style="font-size: 12px; color: #64748b;">已选中 0 页</span>
         </div>
 
         <div id="thumb-grid-split" class="thumb-grid"><div class="empty-tip">请上传文件</div></div>
@@ -274,10 +281,11 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
     const { PDFDocument, degrees } = PDFLib;
 
-    let seqPages = [];  // 核心数据结构: [{ id, type, pdfDoc, pageIndex, imgBuffer, dataUrl, rotation, selected }]
+    let seqPages = [];
     let altFiles = [];
     let splitPages = [];
-    let draggedIndex = null; // 拖拽变量记录
+    let splitPdfDoc = null; 
+    let draggedIndex = null;
 
     function switchTab(tabName) {
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -290,25 +298,36 @@
         document.getElementById('status-info').innerText = text;
     }
 
-    // PDF 页面渲染为缩略图
-    async function renderPdfThumbnail(arrayBuffer, pageNum) {
+    // 核心渲染修复：批量生成 PDF 页面缩略图（串行绘制，保证稳定渲染不留白）
+    async function renderAllPdfThumbnails(arrayBuffer, onPageRendered) {
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
         const pdf = await loadingTask.promise;
-        const page = await pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 0.3 });
-        
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        const totalPages = pdf.numPages;
 
-        await page.render({ canvasContext: context, viewport: viewport }).promise;
-        return canvas.toDataURL('image/jpeg', 0.7);
+        for (let i = 1; i <= totalPages; i++) {
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 0.25 });
+            
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            // 严格等待绘制完全完成
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            
+            // 及时清理单页内存
+            page.cleanup();
+            onPageRendered(i - 1, totalPages, dataUrl);
+        }
+        
+        // 全部处理完后再销毁文档实例
+        pdf.destroy();
     }
 
-    // ================= 顺序拼接页面（上传与预览） =================
+    // ================= TAB 1 逻辑 =================
     async function handleSeqUpload(files) {
-        setStatus("正在解析页面并生成预览...");
         for (let file of files) {
             const isPdf = file.name.toLowerCase().endsWith('.pdf');
             const isImg = file.type.startsWith('image/');
@@ -316,19 +335,19 @@
 
             if (isPdf) {
                 const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-                const count = pdfDoc.getPageCount();
-                for (let i = 0; i < count; i++) {
-                    const dataUrl = await renderPdfThumbnail(buffer, i + 1);
+                await renderAllPdfThumbnails(buffer, (pageIndex, total, dataUrl) => {
+                    setStatus(`解析中 ${file.name}: ${pageIndex + 1}/${total} 页`);
                     seqPages.push({
                         id: Math.random().toString(36).substr(2, 9),
                         type: 'pdf',
                         pdfDoc,
-                        pageIndex: i,
+                        pageIndex,
                         dataUrl,
                         rotation: 0,
                         selected: true
                     });
-                }
+                    renderSeqGrid();
+                });
             } else if (isImg) {
                 const blobUrl = URL.createObjectURL(file);
                 seqPages.push({
@@ -340,18 +359,17 @@
                     rotation: 0,
                     selected: true
                 });
+                renderSeqGrid();
             }
         }
-        renderSeqGrid();
-        setStatus("加载完成，可拖拽调整顺序");
+        setStatus("渲染完成！");
     }
 
-    // 渲染带有拖拽和按钮微调功能的网格
     function renderSeqGrid() {
         const grid = document.getElementById('thumb-grid-seq');
         const btn = document.getElementById('btn-seq');
         if (seqPages.length === 0) {
-            grid.innerHTML = '<div class="empty-tip">暂无页面预览，请上传文件</div>';
+            grid.innerHTML = '<div class="empty-tip">暂无页面，请先上传</div>';
             btn.disabled = true;
             return;
         }
@@ -359,12 +377,11 @@
         grid.innerHTML = seqPages.map((item, index) => `
             <div class="thumb-card ${item.selected ? 'selected' : ''}" 
                  draggable="true" 
-                 ondragstart="handleDragStart(event, ${index})" 
-                 ondragover="handleDragOver(event)" 
-                 ondrop="handleDrop(event, ${index})"
-                 ondragend="handleDragEnd(event)">
+                 ondragstart="draggedIndex=${index};event.target.classList.add('dragging')" 
+                 ondragover="event.preventDefault()" 
+                 ondrop="event.preventDefault();if(draggedIndex!==null&&draggedIndex!==${index}){const item=seqPages.splice(draggedIndex,1)[0];seqPages.splice(${index},0,item);renderSeqGrid();}">
                 
-                <input type="checkbox" class="thumb-checkbox" ${item.selected ? 'checked' : ''} onchange="toggleSelect(${index})">
+                <input type="checkbox" class="thumb-checkbox" ${item.selected ? 'checked' : ''} onchange="seqPages[${index}].selected=!seqPages[${index}].selected;renderSeqGrid();">
                 <img src="${item.dataUrl}" style="transform: rotate(${item.rotation}deg)">
                 
                 <div class="thumb-meta">
@@ -373,10 +390,10 @@
                 </div>
 
                 <div class="thumb-actions">
-                    <button class="btn-mini" onclick="moveSeq(${index}, -1)" ${index === 0 ? 'disabled' : ''} title="前移">⬅️</button>
-                    <button class="btn-mini" onclick="rotateSeq(${index})" title="旋转 90 度">🔄</button>
-                    <button class="btn-mini btn-del" onclick="deleteSeq(${index})" title="移除">🗑️</button>
-                    <button class="btn-mini" onclick="moveSeq(${index}, 1)" ${index === seqPages.length - 1 ? 'disabled' : ''} title="后移">➡️</button>
+                    <button class="btn-mini" onclick="moveSeq(${index}, -1)" ${index === 0 ? 'disabled' : ''}>⬅️</button>
+                    <button class="btn-mini" onclick="seqPages[${index}].rotation=(seqPages[${index}].rotation+90)%360;renderSeqGrid();">🔄</button>
+                    <button class="btn-mini btn-del" onclick="seqPages.splice(${index},1);renderSeqGrid();">🗑️</button>
+                    <button class="btn-mini" onclick="moveSeq(${index}, 1)" ${index === seqPages.length - 1 ? 'disabled' : ''}>➡️</button>
                 </div>
             </div>
         `).join('');
@@ -384,93 +401,48 @@
         btn.disabled = !seqPages.some(p => p.selected);
     }
 
-    // 拖拽手势处理逻辑 (Drag and Drop)
-    function handleDragStart(e, index) {
-        draggedIndex = index;
-        e.target.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-    }
-
-    function handleDragOver(e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-    }
-
-    function handleDrop(e, targetIndex) {
-        e.preventDefault();
-        if (draggedIndex === null || draggedIndex === targetIndex) return;
-        
-        // 交换/插入元素位置
-        const movedItem = seqPages.splice(draggedIndex, 1)[0];
-        seqPages.splice(targetIndex, 0, movedItem);
-        
-        draggedIndex = null;
-        renderSeqGrid();
-    }
-
-    function handleDragEnd(e) {
-        e.target.classList.remove('dragging');
-        draggedIndex = null;
-    }
-
-    // 前移/后移微调
     function moveSeq(index, direction) {
         const target = index + direction;
-        if (target < 0 || target >= seqPages.length) return;
-        [seqPages[index], seqPages[target]] = [seqPages[target], seqPages[index]];
-        renderSeqGrid();
+        if (target >= 0 && target < seqPages.length) {
+            [seqPages[index], seqPages[target]] = [seqPages[target], seqPages[index]];
+            renderSeqGrid();
+        }
     }
 
-    function rotateSeq(index) {
-        seqPages[index].rotation = (seqPages[index].rotation + 90) % 360;
-        renderSeqGrid();
-    }
-
-    function deleteSeq(index) {
-        seqPages.splice(index, 1);
-        renderSeqGrid();
-    }
-
-    function toggleSelect(index) {
-        seqPages[index].selected = !seqPages[index].selected;
-        renderSeqGrid();
-    }
-
-    // ================= 导出逻辑与压缩算法 =================
     async function processSequence() {
-        setStatus("正在按照新顺序生成 PDF...");
+        setStatus("导出处理中...");
         const outDoc = await PDFDocument.create();
-        const activePages = seqPages.filter(p => p.selected);
-
-        for (let item of activePages) {
+        for (let item of seqPages.filter(p => p.selected)) {
             if (item.type === 'pdf') {
                 const [copied] = await outDoc.copyPages(item.pdfDoc, [item.pageIndex]);
-                if (item.rotation !== 0) {
-                    copied.setRotation(degrees((copied.getRotation().angle + item.rotation) % 360));
-                }
+                if (item.rotation !== 0) copied.setRotation(degrees((copied.getRotation().angle + item.rotation) % 360));
                 outDoc.addPage(copied);
-            } else if (item.type === 'image') {
+            } else {
                 let img = item.imageType === 'png' ? await outDoc.embedPng(item.imgBuffer) : await outDoc.embedJpg(item.imgBuffer);
                 const page = outDoc.addPage([img.width, img.height]);
                 page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
                 if (item.rotation !== 0) page.setRotation(degrees(item.rotation));
             }
         }
-
         const compressMode = document.getElementById('compress-mode').value;
         const pdfBytes = await outDoc.save({ useObjectStreams: compressMode !== 'none' });
-        
-        downloadBlob(pdfBytes, `按序重排文档_${Date.now()}.pdf`);
+        downloadBlob(pdfBytes, `合并文档_${Date.now()}.pdf`);
         setStatus("导出成功！");
     }
 
-    // 交替合并逻辑
+    // ================= TAB 2 逻辑 =================
     async function handleAltUpload(files) {
         for (let file of files) {
-            const buffer = await file.arrayBuffer();
             if (file.name.toLowerCase().endsWith('.pdf')) {
+                const buffer = await file.arrayBuffer();
                 const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-                altFiles.push({ file, pdfDoc, pageCount: pdfDoc.getPageCount() });
+                altFiles.push({
+                    file,
+                    pdfDoc,
+                    pageCount: pdfDoc.getPageCount(),
+                    takeCount: 1,
+                    pageRange: ''
+                });
             }
         }
         renderAltList();
@@ -484,55 +456,110 @@
             btn.disabled = true;
             return;
         }
+
         container.innerHTML = altFiles.map((f, i) => `
             <div class="file-item">
-                <div><strong>${i + 1}.</strong> ${f.file.name} <span class="file-badge">${f.pageCount} 页</span></div>
-                <div><button class="btn-icon" onclick="altFiles.splice(${i},1);renderAltList();">🗑️</button></div>
+                <div class="file-info">
+                    <strong>${i + 1}. ${f.file.name}</strong> 
+                    <span class="file-badge">共 ${f.pageCount} 页</span>
+                </div>
+                <div class="file-controls">
+                    <label style="font-size: 12px; color: #64748b;">每次抽取:</label>
+                    <input type="number" value="${f.takeCount}" min="1" max="${f.pageCount}" style="width: 50px;" onchange="altFiles[${i}].takeCount=parseInt(this.value)||1"> 页
+                    
+                    <label style="font-size: 12px; color: #64748b; margin-left: 8px;">限定页码范围:</label>
+                    <input type="text" placeholder="例如: 1-5,8 (留空全选)" value="${f.pageRange}" style="width: 130px;" onchange="altFiles[${i}].pageRange=this.value">
+                    
+                    <button class="btn-icon" onclick="altFiles.splice(${i},1);renderAltList();">🗑️</button>
+                </div>
             </div>
         `).join('');
+
         btn.disabled = altFiles.length < 2;
     }
 
+    function parsePageRange(rangeStr, maxPages) {
+        if (!rangeStr.trim()) return Array.from({length: maxPages}, (_, i) => i);
+        const pages = new Set();
+        const parts = rangeStr.split(',');
+        for (let part of parts) {
+            part = part.trim();
+            if (part.includes('-')) {
+                const [start, end] = part.split('-').map(n => parseInt(n));
+                if (start && end) {
+                    for (let i = Math.max(1, start); i <= Math.min(maxPages, end); i++) pages.add(i - 1);
+                }
+            } else {
+                const p = parseInt(part);
+                if (p && p >= 1 && p <= maxPages) pages.add(p - 1);
+            }
+        }
+        return Array.from(pages).sort((a, b) => a - b);
+    }
+
     async function processAlternate() {
+        setStatus("正在按自定义规则拼合 PDF...");
         const outDoc = await PDFDocument.create();
-        const maxPages = Math.max(...altFiles.map(f => f.pageCount));
-        for (let p = 0; p < maxPages; p++) {
-            for (let f of altFiles) {
-                if (p < f.pageCount) {
-                    const [copied] = await outDoc.copyPages(f.pdfDoc, [p]);
-                    outDoc.addPage(copied);
+
+        const fileQueues = altFiles.map(f => ({
+            pdfDoc: f.pdfDoc,
+            takeCount: f.takeCount,
+            pages: parsePageRange(f.pageRange, f.pageCount),
+            cursor: 0
+        }));
+
+        let hasMore = true;
+        while (hasMore) {
+            hasMore = false;
+            for (let f of fileQueues) {
+                if (f.cursor < f.pages.length) {
+                    hasMore = true;
+                    const take = Math.min(f.takeCount, f.pages.length - f.cursor);
+                    const pagesToCopy = f.pages.slice(f.cursor, f.cursor + take);
+                    
+                    const copiedPages = await outDoc.copyPages(f.pdfDoc, pagesToCopy);
+                    copiedPages.forEach(p => outDoc.addPage(p));
+                    
+                    f.cursor += take;
                 }
             }
         }
-        const bytes = await outDoc.save();
-        downloadBlob(bytes, `交替穿插文档_${Date.now()}.pdf`);
+
+        const compressMode = document.getElementById('compress-mode').value;
+        const bytes = await outDoc.save({ useObjectStreams: compressMode !== 'none' });
+        downloadBlob(bytes, `自定义交替合并_${Date.now()}.pdf`);
+        setStatus("交替合并完成！");
     }
 
-    // 页面拆分逻辑
+    // ================= TAB 3 逻辑（提取与旋转修复） =================
     async function handleSplitUpload(file) {
         if (!file || !file.name.endsWith('.pdf')) return;
-        setStatus("正在加载 PDF 页面...");
+        
         splitPages = [];
+        document.getElementById('split-tools').style.display = 'flex';
+        
         const buffer = await file.arrayBuffer();
-        const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-        const count = pdfDoc.getPageCount();
+        splitPdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
 
-        for (let i = 0; i < count; i++) {
-            const dataUrl = await renderPdfThumbnail(buffer, i + 1);
-            splitPages.push({ id: i, pdfDoc, pageIndex: i, dataUrl, rotation: 0, selected: true });
-        }
-        renderSplitGrid();
-        setStatus("加载完成");
+        // 使用优化后的串行渲染，确保每一页缩略图都能正常绘制
+        await renderAllPdfThumbnails(buffer, (pageIndex, total, dataUrl) => {
+            setStatus(`绘制预览中: ${pageIndex + 1}/${total} 页`);
+            splitPages.push({ id: pageIndex, pageIndex, dataUrl, rotation: 0, selected: true });
+            renderSplitGrid();
+        });
+        
+        setStatus("页面分析完成");
     }
 
     function renderSplitGrid() {
         const grid = document.getElementById('thumb-grid-split');
         const btn = document.getElementById('btn-split');
         if (splitPages.length === 0) {
-            grid.innerHTML = '<div class="empty-tip">请上传文件</div>';
+            grid.innerHTML = '<div class="empty-tip">请先上传文件</div>';
             btn.disabled = true;
             return;
         }
+
         grid.innerHTML = splitPages.map((item, index) => `
             <div class="thumb-card ${item.selected ? 'selected' : ''}">
                 <input type="checkbox" class="thumb-checkbox" ${item.selected ? 'checked' : ''} onchange="splitPages[${index}].selected=!splitPages[${index}].selected;renderSplitGrid();">
@@ -543,18 +570,32 @@
                 </div>
             </div>
         `).join('');
-        btn.disabled = !splitPages.some(p => p.selected);
+
+        const selectedCount = splitPages.filter(p => p.selected).length;
+        document.getElementById('split-count-tip').innerText = `已选中 ${selectedCount} / ${splitPages.length} 页`;
+        btn.disabled = selectedCount === 0;
+    }
+
+    function selectAllSplit(status) {
+        splitPages.forEach(p => p.selected = status);
+        renderSplitGrid();
     }
 
     async function processSplitExport() {
+        setStatus("导出处理中...");
         const outDoc = await PDFDocument.create();
-        for (let item of splitPages.filter(p => p.selected)) {
-            const [copied] = await outDoc.copyPages(item.pdfDoc, [item.pageIndex]);
+        const activePages = splitPages.filter(p => p.selected);
+
+        for (let item of activePages) {
+            const [copied] = await outDoc.copyPages(splitPdfDoc, [item.pageIndex]);
             if (item.rotation !== 0) copied.setRotation(degrees((copied.getRotation().angle + item.rotation) % 360));
             outDoc.addPage(copied);
         }
-        const bytes = await outDoc.save();
-        downloadBlob(bytes, `提取拆分文档_${Date.now()}.pdf`);
+
+        const compressMode = document.getElementById('compress-mode').value;
+        const bytes = await outDoc.save({ useObjectStreams: compressMode !== 'none' });
+        downloadBlob(bytes, `拆分导出文档_${Date.now()}.pdf`);
+        setStatus("导出成功！");
     }
 
     function downloadBlob(bytes, filename) {
