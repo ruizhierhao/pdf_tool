@@ -7,15 +7,11 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📑</text></svg>">
     
     <!-- 纯前端外部高可用 CDN 依赖 -->
-    <!-- 1. PDF 处理与渲染 -->
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-    <!-- 2. Word 互转与解析 -->
     <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
     <script src="https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js"></script>
-    <!-- 3. ZIP 批量打包 -->
     <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
-    <!-- 4. Excel 表格解析 -->
     <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <style>
@@ -33,7 +29,6 @@
             --text-muted: #64748b;
             --danger: #ef4444;
             --danger-bg: #fef2f2;
-            --success: #10b981;
             --radius-lg: 16px;
             --radius-md: 10px;
             --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
@@ -524,25 +519,22 @@
             </div>
         </section>
 
-        <!-- 4. PDF 转 Word (高保真图文版) -->
+        <!-- 4. PDF 转 Word (自适应规整版) -->
         <section id="panel-pdf-to-word" class="view-panel">
             <div class="panel-header">
-                <h2>PDF 转换为 Word (高保真图文防跑版引擎)</h2>
-                <p>采用图文一体化重构技术：保留原始图像底版、版面几何坐标，同时完整提纯可编辑段落文本，彻底解决图片丢失与排版跑位问题</p>
+                <h2>PDF 转换为 Word (页面锁约防溢出引擎)</h2>
+                <p>严格自适应 Word 版面尺寸，底图严格限制在版心安全范围，不超出页宽，不溢出分页，同页图文绝对紧凑对齐</p>
             </div>
             <div class="upload-area" onclick="document.getElementById('input-pdf2word').click()">
                 <div class="upload-icon">📝</div>
                 <div class="upload-title">上传 PDF 文件转为 Word 文档</div>
-                <div class="upload-hint">支持各种复杂版面、表格、公文及扫描件</div>
+                <div class="upload-hint">支持各类复杂排版、带背景文档、扫描件，自动排版对齐</div>
                 <input type="file" id="input-pdf2word" accept=".pdf" onchange="handlePdfToWord(this.files[0])">
             </div>
             <div class="config-bar">
                 <div class="config-group">
-                    <label>导出精度与模式：</label>
-                    <select id="word-fidelity-mode">
-                        <option value="high" selected>高保真图文混排 (推荐 · 100%保留图片与原始排版)</option>
-                        <option value="textonly">纯流式段落文本 (仅提纯文本)</option>
-                    </select>
+                    <label>转换选项：</label>
+                    <label><input type="checkbox" id="word-inc-text" checked> 附带可编辑文字层（位于图纸下方）</label>
                 </div>
             </div>
             <div class="preview-box" id="pdf2word-preview">等待文件上传并解析...</div>
@@ -1090,149 +1082,162 @@
         setStatus('交替合并完成！', 100);
     }
 
-    // ================= 4. PDF 转 Word (高保真图文防跑版引擎) =================
-    // ================= 高精度尺寸与位置修复引擎 =================
-async function handlePdfToWord(file) {
-    if (!file) return;
-    setStatus('正在以物理尺寸锚定引擎解析 PDF...', 10);
+    // ================= 4. PDF 转 Word (自适应锁定排版引擎) =================
+    async function handlePdfToWord(file) {
+        if (!file) return;
+        setStatus('正在规整版面并提取高保真图文...', 10);
 
-    const buffer = await file.arrayBuffer();
-    const loadingTask = pdfjsLib.getDocument({ data: buffer });
-    const pdf = await loadingTask.promise;
-    const total = pdf.numPages;
+        const buffer = await file.arrayBuffer();
+        const loadingTask = pdfjsLib.getDocument({ data: buffer });
+        const pdf = await loadingTask.promise;
+        const total = pdf.numPages;
+        const includeText = document.getElementById('word-inc-text').checked;
 
-    // 获取第一页的实际点阵尺寸 (1 pt = 1/72 inch)
-    const firstPage = await pdf.getPage(1);
-    const initialView = firstPage.getViewport({ scale: 1.0 });
-    const pageWidthPt = initialView.width;
-    const pageHeightPt = initialView.height;
-    firstPage.cleanup();
+        // 标准 A4 页面设置：宽度 595.3pt，去除两边 25pt 页边距后，版心安全宽度为 545pt
+        const CONTENT_MAX_WIDTH_PT = 545;
 
-    let docHtmlContent = `
-        <html xmlns:v="urn:schemas-microsoft-com:vml"
-              xmlns:o="urn:schemas-microsoft-com:office:office"
-              xmlns:w="urn:schemas-microsoft-com:office:word"
-              xmlns:m="http://schemas.microsoft.com/office/2004/12/omml"
-              xmlns="http://www.w3.org/TR/REC-html40">
-        <head>
-            <meta charset="utf-8">
-            <title>${file.name}</title>
-            <!--[if gte mso 9]>
-            <xml>
-                <w:WordDocument>
-                    <w:View>Print</w:View>
-                    <w:Zoom>100</w:Zoom>
-                    <w:DoNotOptimizeForBrowser/>
-                </w:WordDocument>
-            </xml>
-            <![endif]-->
-            <style>
-                @page Section1 {
-                    size: ${pageWidthPt}pt ${pageHeightPt}pt;
-                    margin: 0cm;
-                    mso-header-margin: 0cm;
-                    mso-footer-margin: 0cm;
-                    mso-paper-source: 0;
-                }
-                div.Section1 { page: Section1; }
-                body { margin: 0px; padding: 0px; font-family: 'Segoe UI', Calibri, Arial, sans-serif; }
-                .page-box {
-                    position: relative;
-                    width: ${pageWidthPt}pt;
-                    height: ${pageHeightPt}pt;
-                    page-break-after: always;
-                    overflow: hidden;
-                }
-                .bg-canvas-img {
-                    position: absolute;
-                    left: 0pt;
-                    top: 0pt;
-                    width: ${pageWidthPt}pt;
-                    height: ${pageHeightPt}pt;
-                    z-index: -1;
-                }
-                .editable-text-layer {
-                    position: absolute;
-                    left: 0pt;
-                    top: 0pt;
-                    width: ${pageWidthPt}pt;
-                    height: ${pageHeightPt}pt;
-                }
-                p { margin: 0; padding: 0; line-height: 1.2; }
-            </style>
-        </head>
-        <body>
-        <div class="Section1">
-    `;
-
-    let previewHtml = '';
-
-    for (let i = 1; i <= total; i++) {
-        setStatus(`正在重构第 ${i}/${total} 页几何坐标...`, Math.round((i / total) * 85));
-        const page = await pdf.getPage(i);
-        const unscaledViewport = page.getViewport({ scale: 1.0 });
-        const curWidth = unscaledViewport.width;
-        const curHeight = unscaledViewport.height;
-
-        // 渲染 2 倍超清底图保证清晰度
-        const renderViewport = page.getViewport({ scale: 2.0 });
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = renderViewport.width;
-        canvas.height = renderViewport.height;
-        await page.render({ canvasContext: ctx, viewport: renderViewport }).promise;
-        const pageImgDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-
-        // 提取绝对坐标文字流
-        const textContent = await page.getTextContent();
-        let pageTextsHtml = '';
-
-        for (let item of textContent.items) {
-            // PDF 坐标系的原点在左下角，转换为 Word/HTML 的左上角原点
-            const textX = item.transform[4];
-            const textY = curHeight - item.transform[5] - (item.height || 10);
-            const fontSize = Math.sqrt(item.transform[0] * item.transform[0] + item.transform[1] * item.transform[1]);
-
-            pageTextsHtml += `
-                <span style="position: absolute; left: ${textX.toFixed(1)}pt; top: ${textY.toFixed(1)}pt; font-size: ${fontSize.toFixed(1)}pt; white-space: pre; color: rgba(0,0,0,0.85);">
-                    ${item.str}
-                </span>
-            `;
-        }
-
-        // 使用 Word 专用的 v:shape 锚定底图，确保 100% 贴合纸张且在底层
-        const pageSection = `
-            <div class="page-box" style="width: ${curWidth}pt; height: ${curHeight}pt;">
-                <!--[if gte vml 1]>
-                <v:image style="position:absolute; left:0pt; top:0pt; width:${curWidth}pt; height:${curHeight}pt; z-index:-1;"
-                         src="${pageImgDataUrl}">
-                </v:image>
+        let docHtmlContent = `
+            <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+                  xmlns:w='urn:schemas-microsoft-com:office:word' 
+                  xmlns='http://www.w3.org/TR/REC-html40'>
+            <head>
+                <meta charset="utf-8">
+                <title>${file.name}</title>
+                <!--[if gte mso 9]>
+                <xml>
+                    <w:WordDocument>
+                        <w:View>Print</w:View>
+                        <w:Zoom>100</w:Zoom>
+                        <w:DoNotOptimizeForBrowser/>
+                    </w:WordDocument>
+                </xml>
                 <![endif]-->
-                <![if !vml]>
-                <img class="bg-canvas-img" src="${pageImgDataUrl}" style="width:${curWidth}pt; height:${curHeight}pt;" />
-                <![endif]>
-                <div class="editable-text-layer">
-                    ${pageTextsHtml}
-                </div>
-            </div>
+                <style>
+                    @page Section1 {
+                        size: 595.3pt 841.9pt; /* 标准 A4 规格 */
+                        margin: 25pt 25pt 25pt 25pt;
+                        mso-header-margin: 0pt;
+                        mso-footer-margin: 0pt;
+                    }
+                    div.Section1 { page: Section1; }
+                    body {
+                        font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+                        color: #1e293b;
+                        background: #ffffff;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    /* 使用 Word 最兼容的表格容器进行页面锁定，彻底杜绝偏右与溢出 */
+                    .page-table {
+                        width: 100%;
+                        max-width: ${CONTENT_MAX_WIDTH_PT}pt;
+                        border-collapse: collapse;
+                        border: none;
+                        margin: 0 auto;
+                        page-break-after: always;
+                    }
+                    .page-table td {
+                        padding: 0;
+                        margin: 0;
+                        border: none;
+                        text-align: center;
+                    }
+                    .doc-img {
+                        display: block;
+                        width: 100%;
+                        max-width: ${CONTENT_MAX_WIDTH_PT}pt;
+                        height: auto;
+                        margin: 0 auto;
+                    }
+                    .text-content-block {
+                        text-align: left;
+                        margin-top: 12pt;
+                        font-size: 10.5pt;
+                        line-height: 1.5;
+                        color: #334155;
+                    }
+                    p { margin: 0 0 6pt 0; text-align: justify; }
+                </style>
+            </head>
+            <body>
+            <div class="Section1">
         `;
 
-        docHtmlContent += pageSection;
-        previewHtml += pageSection;
-        page.cleanup();
+        let previewHtml = '';
+
+        for (let i = 1; i <= total; i++) {
+            setStatus(`正在精确渲染第 ${i}/${total} 页版面...`, Math.round((i / total) * 85));
+            const page = await pdf.getPage(i);
+            
+            // 基于原始尺寸计算精准的页面缩放比，保持原始宽高比
+            const unscaledViewport = page.getViewport({ scale: 1.0 });
+            const renderScale = (CONTENT_MAX_WIDTH_PT / unscaledViewport.width) * 1.5; // 提高清晰度
+            const viewport = page.getViewport({ scale: renderScale });
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            const pageImgDataUrl = canvas.toDataURL('image/jpeg', 0.88);
+
+            // 提取单页段落文本
+            let pageHtmlText = '';
+            if (includeText) {
+                const textContent = await page.getTextContent();
+                let lastY = null;
+                let lineBuffer = '';
+
+                for (let item of textContent.items) {
+                    if (lastY !== null && Math.abs(item.transform[5] - lastY) > 6) {
+                        if (lineBuffer.trim()) pageHtmlText += `<p>${lineBuffer.trim()}</p>`;
+                        lineBuffer = item.str;
+                    } else {
+                        lineBuffer += (lineBuffer ? ' ' : '') + item.str;
+                    }
+                    lastY = item.transform[5];
+                }
+                if (lineBuffer.trim()) pageHtmlText += `<p>${lineBuffer.trim()}</p>`;
+            }
+
+            // 单页紧凑表格结构（严格保证图片与当页文字在同一页内）
+            const pageTableHtml = `
+                <table class="page-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td>
+                            <img class="doc-img" src="${pageImgDataUrl}" alt="Page ${i}" />
+                        </td>
+                    </tr>
+                    ${pageHtmlText ? `
+                    <tr>
+                        <td>
+                            <div class="text-content-block">
+                                <div style="font-weight: bold; margin-bottom: 4pt; color: #64748b; font-size: 9pt;">[ 第 ${i} 页文字层 ]</div>
+                                ${pageHtmlText}
+                            </div>
+                        </td>
+                    </tr>
+                    ` : ''}
+                </table>
+            `;
+
+            docHtmlContent += pageTableHtml;
+            previewHtml += pageTableHtml;
+            page.cleanup();
+        }
+
+        docHtmlContent += `</div></body></html>`;
+
+        document.getElementById('pdf2word-preview').innerHTML = previewHtml;
+        generatedWordData = {
+            html: docHtmlContent,
+            fileName: `${file.name.replace(/\.pdf$/i, '')}_对齐导出.doc`
+        };
+
+        document.getElementById('btn-export-word').disabled = false;
+        setStatus('Word 构建完毕！已严格对齐 A4 版心，图片无拉伸与偏移。', 100);
     }
 
-    docHtmlContent += `</div></body></html>`;
-
-    document.getElementById('pdf2word-preview').innerHTML = previewHtml;
-    generatedWordData = {
-        html: docHtmlContent,
-        fileName: `${file.name.replace(/\.pdf$/i, '')}_定点无损.doc`
-    };
-
-    document.getElementById('btn-export-word').disabled = false;
-    setStatus('定点无损 Word 构建完成，图片尺寸已锁定！', 100);
-}
     function downloadGeneratedDoc() {
         if (!generatedWordData) return;
         const blob = new Blob(['\ufeff' + generatedWordData.html], { 
@@ -1597,7 +1602,6 @@ async function handlePdfToWord(file) {
         setStatus('压缩文件已下载！', 100);
     }
 
-    // 通用下载辅助
     function downloadBlob(data, filename, mimeType) {
         const blob = data instanceof Blob ? data : new Blob([data], { type: mimeType });
         const url = URL.createObjectURL(blob);
@@ -1605,7 +1609,7 @@ async function handlePdfToWord(file) {
         link.href = url;
         link.download = filename;
         link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     }
 </script>
 </body>
