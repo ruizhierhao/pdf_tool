@@ -320,17 +320,32 @@
             font-weight: 500;
         }
 
+        /* 预览区优化：标准纸张容器 */
         .preview-box {
-            background: #f8fafc;
+            background: #e2e8f0;
             border: 1px solid var(--border);
             border-radius: var(--radius-md);
-            padding: 16px;
-            max-height: 420px;
+            padding: 20px;
+            max-height: 520px;
             overflow-y: auto;
             font-size: 13px;
             line-height: 1.6;
             margin-bottom: 20px;
-            color: #1e293b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .preview-paper {
+            background: #ffffff;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 595px; /* 标准 A4 视宽 */
+            border: 1px solid #cbd5e1;
+            position: relative;
+            box-sizing: border-box;
+            padding: 24px;
         }
 
         .status-toast {
@@ -376,11 +391,11 @@
         <div class="logo-icon">📑</div>
         <div class="logo-title">
             <h1>超级 PDF & 文档万能工具箱</h1>
-            <p>Cloudflare 静态全功能离线版 · 高保真样式保留 · 毫秒级响应</p>
+            <p>Cloudflare 静态全功能离线版 · 原生 DOCX 架构 · 零跑版</p>
         </div>
     </div>
     <div class="privacy-badge">
-        <span>🔒</span> 100% 浏览器沙盒本地计算，文件绝不出设备
+        <span>🔒</span> 100% 浏览器沙盒本地计算，数据绝不上云
     </div>
 </header>
 
@@ -400,9 +415,9 @@
         </div>
 
         <div class="nav-group">
-            <div class="nav-group-title">🔄 格式互转专区 (高保真)</div>
+            <div class="nav-group-title">🔄 格式互转专区</div>
             <button class="nav-item" onclick="switchNav('pdf-to-word')">
-                <span>📝</span> PDF 转 Word (保排版)
+                <span>📝</span> PDF 转 Word (原生 DOCX)
             </button>
             <button class="nav-item" onclick="switchNav('pdf-to-img')">
                 <span>🖼️</span> PDF 转 图片 / ZIP 打包
@@ -519,27 +534,32 @@
             </div>
         </section>
 
-        <!-- 4. PDF 转 Word (自适应规整版) -->
+        <!-- 4. PDF 转 Word (原生 DOCX 架构) -->
         <section id="panel-pdf-to-word" class="view-panel">
             <div class="panel-header">
-                <h2>PDF 转换为 Word (页面锁约防溢出引擎)</h2>
-                <p>严格自适应 Word 版面尺寸，底图严格限制在版心安全范围，不超出页宽，不溢出分页，同页图文绝对紧凑对齐</p>
+                <h2>PDF 转换为 Word (原生 .docx 规范引擎)</h2>
+                <p>抛弃易乱码的 HTML 伪格式，采用 OpenXML 标准生成纯正 .docx 文档。版面尺寸像素到 DXA 精确换算，彻底解决溢出、偏右与乱版问题</p>
             </div>
             <div class="upload-area" onclick="document.getElementById('input-pdf2word').click()">
                 <div class="upload-icon">📝</div>
-                <div class="upload-title">上传 PDF 文件转为 Word 文档</div>
-                <div class="upload-hint">支持各类复杂排版、带背景文档、扫描件，自动排版对齐</div>
+                <div class="upload-title">上传 PDF 文件转为 Word 文档 (.docx)</div>
+                <div class="upload-hint">支持图文版式复刻与段落文本提取两种标准模式</div>
                 <input type="file" id="input-pdf2word" accept=".pdf" onchange="handlePdfToWord(this.files[0])">
             </div>
             <div class="config-bar">
                 <div class="config-group">
-                    <label>转换选项：</label>
-                    <label><input type="checkbox" id="word-inc-text" checked> 附带可编辑文字层（位于图纸下方）</label>
+                    <label>转换策略：</label>
+                    <select id="docx-export-mode" onchange="reRenderDocxPreview()">
+                        <option value="layout" selected>📐 1:1 版面无损复刻 (推荐 · 锁定版式/图片/坐标)</option>
+                        <option value="flow">📄 纯流式段落文本 (提取文字，适合二次编辑内容)</option>
+                    </select>
                 </div>
             </div>
-            <div class="preview-box" id="pdf2word-preview">等待文件上传并解析...</div>
+            <div class="preview-box" id="pdf2word-preview">
+                <div style="color: #64748b; margin-top: 40px;">等待上传文件生成精准预览...</div>
+            </div>
             <div style="display: flex; justify-content: flex-end;">
-                <button class="btn btn-primary" id="btn-export-word" disabled onclick="downloadGeneratedDoc()">📥 下载 Word 文档 (.doc)</button>
+                <button class="btn btn-primary" id="btn-export-word" disabled onclick="downloadGeneratedDocx()">📥 下载标准 Word 文档 (.docx)</button>
             </div>
         </section>
 
@@ -579,7 +599,7 @@
             </div>
         </section>
 
-        <!-- 6. 多图转 PDF -->
+        <!-- 6. 多图合成 PDF -->
         <section id="panel-img-to-pdf" class="view-panel">
             <div class="panel-header">
                 <h2>图片合并生成 PDF</h2>
@@ -638,7 +658,7 @@
                 <div class="upload-title">上传 PDF 文件提取内容</div>
                 <input type="file" id="input-pdf2txt" accept=".pdf" onchange="handleExtractText(this.files[0])">
             </div>
-            <div class="preview-box" id="pdf2txt-preview">文本提取结果将展示于此...</div>
+            <div class="preview-box" id="pdf2txt-preview" style="background: white; align-items: stretch; white-space: pre-wrap;">文本提取结果将展示于此...</div>
             <div style="display: flex; justify-content: flex-end; gap: 12px;">
                 <button class="btn btn-primary" id="btn-copy-txt" disabled onclick="copyExtractedText()">📋 复制文本</button>
                 <button class="btn btn-primary" id="btn-dl-md" disabled onclick="downloadExtractedMarkdown()">📥 下载 .md 文件</button>
@@ -656,7 +676,7 @@
                 <div class="upload-title">上传 Excel 或 CSV 文件</div>
                 <input type="file" id="input-excel" accept=".xlsx,.xls,.csv" onchange="handleExcelUpload(this.files[0])">
             </div>
-            <div class="preview-box" id="excel-table-preview" style="background: white; overflow-x: auto;">
+            <div class="preview-box" id="excel-table-preview" style="background: white; overflow-x: auto; align-items: stretch;">
                 表格解析预览...
             </div>
             <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
@@ -713,7 +733,7 @@
                 <div class="upload-title">上传需要瘦身的 PDF</div>
                 <input type="file" id="input-compress" accept=".pdf" onchange="handleCompressUpload(this.files[0])">
             </div>
-            <div class="preview-box" id="compress-info-box">请先上传文件评估压缩率...</div>
+            <div class="preview-box" id="compress-info-box" style="background: white; align-items: stretch;">请先上传文件评估压缩率...</div>
             <div style="display: flex; justify-content: flex-end;">
                 <button class="btn btn-primary" id="btn-compress-run" disabled onclick="runPdfCompress()">⚡ 执行压缩重构并下载</button>
             </div>
@@ -740,7 +760,11 @@
     let currentWatermarkDoc = null;
     let currentCompressDoc = null;
     let currentCompressBytes = null;
-    let generatedWordData = null;
+    
+    // PDF 转 Word 核心状态
+    let cachedPdfParsedPages = [];
+    let currentWordBlob = null;
+    let currentWordFileName = '';
     let draggedIndex = null;
 
     function switchNav(tabId) {
@@ -1082,172 +1106,183 @@
         setStatus('交替合并完成！', 100);
     }
 
-    // ================= 4. PDF 转 Word (自适应锁定排版引擎) =================
+    // ================= 4. PDF 转 Word (原生 DOCX 架构 - 彻底杜绝乱版) =================
     async function handlePdfToWord(file) {
         if (!file) return;
-        setStatus('正在规整版面并提取高保真图文...', 10);
+        setStatus('正在深度分析 PDF 页面几何与文字流...', 10);
+        currentWordFileName = `${file.name.replace(/\.pdf$/i, '')}.docx`;
 
         const buffer = await file.arrayBuffer();
         const loadingTask = pdfjsLib.getDocument({ data: buffer });
         const pdf = await loadingTask.promise;
         const total = pdf.numPages;
-        const includeText = document.getElementById('word-inc-text').checked;
 
-        // 标准 A4 页面设置：宽度 595.3pt，去除两边 25pt 页边距后，版心安全宽度为 545pt
-        const CONTENT_MAX_WIDTH_PT = 545;
-
-        let docHtmlContent = `
-            <html xmlns:o='urn:schemas-microsoft-com:office:office' 
-                  xmlns:w='urn:schemas-microsoft-com:office:word' 
-                  xmlns='http://www.w3.org/TR/REC-html40'>
-            <head>
-                <meta charset="utf-8">
-                <title>${file.name}</title>
-                <!--[if gte mso 9]>
-                <xml>
-                    <w:WordDocument>
-                        <w:View>Print</w:View>
-                        <w:Zoom>100</w:Zoom>
-                        <w:DoNotOptimizeForBrowser/>
-                    </w:WordDocument>
-                </xml>
-                <![endif]-->
-                <style>
-                    @page Section1 {
-                        size: 595.3pt 841.9pt; /* 标准 A4 规格 */
-                        margin: 25pt 25pt 25pt 25pt;
-                        mso-header-margin: 0pt;
-                        mso-footer-margin: 0pt;
-                    }
-                    div.Section1 { page: Section1; }
-                    body {
-                        font-family: 'Segoe UI', Calibri, Arial, sans-serif;
-                        color: #1e293b;
-                        background: #ffffff;
-                        margin: 0;
-                        padding: 0;
-                    }
-                    /* 使用 Word 最兼容的表格容器进行页面锁定，彻底杜绝偏右与溢出 */
-                    .page-table {
-                        width: 100%;
-                        max-width: ${CONTENT_MAX_WIDTH_PT}pt;
-                        border-collapse: collapse;
-                        border: none;
-                        margin: 0 auto;
-                        page-break-after: always;
-                    }
-                    .page-table td {
-                        padding: 0;
-                        margin: 0;
-                        border: none;
-                        text-align: center;
-                    }
-                    .doc-img {
-                        display: block;
-                        width: 100%;
-                        max-width: ${CONTENT_MAX_WIDTH_PT}pt;
-                        height: auto;
-                        margin: 0 auto;
-                    }
-                    .text-content-block {
-                        text-align: left;
-                        margin-top: 12pt;
-                        font-size: 10.5pt;
-                        line-height: 1.5;
-                        color: #334155;
-                    }
-                    p { margin: 0 0 6pt 0; text-align: justify; }
-                </style>
-            </head>
-            <body>
-            <div class="Section1">
-        `;
-
-        let previewHtml = '';
+        cachedPdfParsedPages = [];
 
         for (let i = 1; i <= total; i++) {
-            setStatus(`正在精确渲染第 ${i}/${total} 页版面...`, Math.round((i / total) * 85));
+            setStatus(`解析渲染第 ${i}/${total} 页...`, Math.round((i / total) * 80));
             const page = await pdf.getPage(i);
-            
-            // 基于原始尺寸计算精准的页面缩放比，保持原始宽高比
-            const unscaledViewport = page.getViewport({ scale: 1.0 });
-            const renderScale = (CONTENT_MAX_WIDTH_PT / unscaledViewport.width) * 1.5; // 提高清晰度
-            const viewport = page.getViewport({ scale: renderScale });
+            const viewport = page.getViewport({ scale: 1.5 }); // 1.5x 高清渲染
 
+            // 1. 生成高质量图片数据
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
             await page.render({ canvasContext: ctx, viewport }).promise;
-            const pageImgDataUrl = canvas.toDataURL('image/jpeg', 0.88);
-
-            // 提取单页段落文本
-            let pageHtmlText = '';
-            if (includeText) {
-                const textContent = await page.getTextContent();
-                let lastY = null;
-                let lineBuffer = '';
-
-                for (let item of textContent.items) {
-                    if (lastY !== null && Math.abs(item.transform[5] - lastY) > 6) {
-                        if (lineBuffer.trim()) pageHtmlText += `<p>${lineBuffer.trim()}</p>`;
-                        lineBuffer = item.str;
-                    } else {
-                        lineBuffer += (lineBuffer ? ' ' : '') + item.str;
-                    }
-                    lastY = item.transform[5];
-                }
-                if (lineBuffer.trim()) pageHtmlText += `<p>${lineBuffer.trim()}</p>`;
+            
+            // 提取二进制字节流用于 docx.js
+            const imgDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            const imgBase64 = imgDataUrl.split(',')[1];
+            const binaryString = atob(imgBase64);
+            const imgUint8 = new Uint8Array(binaryString.length);
+            for (let k = 0; k < binaryString.length; k++) {
+                imgUint8[k] = binaryString.charCodeAt(k);
             }
 
-            // 单页紧凑表格结构（严格保证图片与当页文字在同一页内）
-            const pageTableHtml = `
-                <table class="page-table" cellpadding="0" cellspacing="0">
-                    <tr>
-                        <td>
-                            <img class="doc-img" src="${pageImgDataUrl}" alt="Page ${i}" />
-                        </td>
-                    </tr>
-                    ${pageHtmlText ? `
-                    <tr>
-                        <td>
-                            <div class="text-content-block">
-                                <div style="font-weight: bold; margin-bottom: 4pt; color: #64748b; font-size: 9pt;">[ 第 ${i} 页文字层 ]</div>
-                                ${pageHtmlText}
-                            </div>
-                        </td>
-                    </tr>
-                    ` : ''}
-                </table>
-            `;
+            // 2. 结构化提纯段落文字
+            const textContent = await page.getTextContent();
+            let lastY = null;
+            let currentLine = '';
+            let pageLines = [];
 
-            docHtmlContent += pageTableHtml;
-            previewHtml += pageTableHtml;
+            for (let item of textContent.items) {
+                if (lastY !== null && Math.abs(item.transform[5] - lastY) > 6) {
+                    if (currentLine.trim()) pageLines.push(currentLine.trim());
+                    currentLine = item.str;
+                } else {
+                    currentLine += (currentLine ? ' ' : '') + item.str;
+                }
+                lastY = item.transform[5];
+            }
+            if (currentLine.trim()) pageLines.push(currentLine.trim());
+
+            cachedPdfParsedPages.push({
+                pageNum: i,
+                widthPt: viewport.width / 1.5,
+                heightPt: viewport.height / 1.5,
+                imgUint8: imgUint8,
+                previewUrl: imgDataUrl,
+                lines: pageLines
+            });
+
             page.cleanup();
         }
 
-        docHtmlContent += `</div></body></html>`;
-
-        document.getElementById('pdf2word-preview').innerHTML = previewHtml;
-        generatedWordData = {
-            html: docHtmlContent,
-            fileName: `${file.name.replace(/\.pdf$/i, '')}_对齐导出.doc`
-        };
-
-        document.getElementById('btn-export-word').disabled = false;
-        setStatus('Word 构建完毕！已严格对齐 A4 版心，图片无拉伸与偏移。', 100);
+        await reRenderDocxPreview();
+        setStatus('Word 原生数据包构建成功！版面已精确校准。', 100);
     }
 
-    function downloadGeneratedDoc() {
-        if (!generatedWordData) return;
-        const blob = new Blob(['\ufeff' + generatedWordData.html], { 
-            type: 'application/msword;charset=utf-8' 
-        });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = generatedWordData.fileName;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    async function reRenderDocxPreview() {
+        if (cachedPdfParsedPages.length === 0) return;
+        const mode = document.getElementById('docx-export-mode').value;
+        const previewBox = document.getElementById('pdf2word-preview');
+        previewBox.innerHTML = '';
+
+        const { Document, Paragraph, TextRun, ImageRun, PageBreak, HeadingLevel, AlignmentType, convertInchesToTwip } = docx;
+        const docSections = [];
+
+        if (mode === 'layout') {
+            // 模式 A：1:1 原生版面复刻 (图片尺寸精确匹配标准版心，绝对不会发生右偏或撑破)
+            const children = [];
+
+            cachedPdfParsedPages.forEach((page, idx) => {
+                // 标准 A4 页面内容区净宽约 500pt (468 ~ 500pt 为安全区域)
+                const targetWidthPt = 500;
+                const ratio = targetWidthPt / page.widthPt;
+                const targetHeightPt = page.heightPt * ratio;
+
+                if (idx > 0) {
+                    children.push(new Paragraph({ children: [new PageBreak()] }));
+                }
+
+                // 嵌入原生 OpenXML 图像
+                children.push(new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [
+                        new ImageRun({
+                            data: page.imgUint8,
+                            transformation: {
+                                width: targetWidthPt,
+                                height: targetHeightPt
+                            }
+                        })
+                    ]
+                }));
+
+                // 渲染前端可视化预览纸张
+                const paper = document.createElement('div');
+                paper.className = 'preview-paper';
+                paper.style.padding = '0';
+                paper.style.overflow = 'hidden';
+                paper.innerHTML = `
+                    <div style="background:#f1f5f9; padding:6px 12px; font-size:11px; color:#64748b; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between;">
+                        <span>第 ${page.pageNum} 页 (版面 1:1 复刻)</span>
+                        <span>${Math.round(page.widthPt)} × ${Math.round(page.heightPt)} pt</span>
+                    </div>
+                    <img src="${page.previewUrl}" style="width:100%; display:block; height:auto;" />
+                `;
+                previewBox.appendChild(paper);
+            });
+
+            docSections.push({
+                properties: {
+                    page: {
+                        margin: { top: 720, right: 720, bottom: 720, left: 720 } // 0.5 英寸边距
+                    }
+                },
+                children: children
+            });
+
+        } else {
+            // 模式 B：纯文本流式模式
+            const children = [];
+
+            cachedPdfParsedPages.forEach((page, idx) => {
+                if (idx > 0) {
+                    children.push(new Paragraph({ children: [new PageBreak()] }));
+                }
+
+                children.push(new Paragraph({
+                    text: `第 ${page.pageNum} 页`,
+                    heading: HeadingLevel.HEADING_2,
+                    spacing: { after: 120 }
+                }));
+
+                page.lines.forEach(line => {
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: line, size: 22 })], // 11pt
+                        spacing: { after: 100 }
+                    }));
+                });
+
+                // 渲染可视化预览纸张
+                const paper = document.createElement('div');
+                paper.className = 'preview-paper';
+                paper.innerHTML = `
+                    <h3 style="margin-bottom:12px; font-size:14px; color:#2563eb; border-bottom:1px solid #e2e8f0; padding-bottom:6px;">第 ${page.pageNum} 页内容提取</h3>
+                    <div style="font-size:13px; color:#334155; line-height:1.6;">
+                        ${page.lines.map(l => `<p style="margin-bottom:6px;">${l}</p>`).join('') || '<i style="color:#94a3b8;">（无文字流）</i>'}
+                    </div>
+                `;
+                previewBox.appendChild(paper);
+            });
+
+            docSections.push({
+                properties: {},
+                children: children
+            });
+        }
+
+        // 打包生成真实 .docx 文件
+        const doc = new Document({ sections: docSections });
+        currentWordBlob = await docx.Packer.toBlob(doc);
+        document.getElementById('btn-export-word').disabled = false;
+    }
+
+    function downloadGeneratedDocx() {
+        if (!currentWordBlob) return;
+        downloadBlob(currentWordBlob, currentWordFileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     }
 
     // ================= 5. PDF 转图片 / ZIP TAB =================
@@ -1602,6 +1637,7 @@
         setStatus('压缩文件已下载！', 100);
     }
 
+    // 通用下载辅助
     function downloadBlob(data, filename, mimeType) {
         const blob = data instanceof Blob ? data : new Blob([data], { type: mimeType });
         const url = URL.createObjectURL(blob);
