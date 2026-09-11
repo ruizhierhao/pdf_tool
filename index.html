@@ -1091,115 +1091,148 @@
     }
 
     // ================= 4. PDF 转 Word (高保真图文防跑版引擎) =================
-    async function handlePdfToWord(file) {
-        if (!file) return;
-        setStatus('正在以高保真引擎解析 PDF 图文版式...', 10);
+    // ================= 高精度尺寸与位置修复引擎 =================
+async function handlePdfToWord(file) {
+    if (!file) return;
+    setStatus('正在以物理尺寸锚定引擎解析 PDF...', 10);
 
-        const buffer = await file.arrayBuffer();
-        const loadingTask = pdfjsLib.getDocument({ data: buffer });
-        const pdf = await loadingTask.promise;
-        const total = pdf.numPages;
-        const isHighFidelity = document.getElementById('word-fidelity-mode').value === 'high';
+    const buffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: buffer });
+    const pdf = await loadingTask.promise;
+    const total = pdf.numPages;
 
-        let docHtmlContent = `
-            <html xmlns:o='urn:schemas-microsoft-com:office:office' 
-                  xmlns:w='urn:schemas-microsoft-com:office:word' 
-                  xmlns='http://www.w3.org/TR/REC-html40'>
-            <head>
-                <meta charset="utf-8">
-                <title>${file.name}</title>
-                <!--[if gte mso 9]>
-                <xml>
-                    <w:WordDocument>
-                        <w:View>Print</w:View>
-                        <w:Zoom>100</w:Zoom>
-                        <w:DoNotOptimizeForBrowser/>
-                    </w:WordDocument>
-                </xml>
-                <![endif]-->
-                <style>
-                    @page { size: A4; margin: 1.5cm; }
-                    body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; color: #1e293b; line-height: 1.6; }
-                    .pdf-page-container { position: relative; margin-bottom: 28px; page-break-after: always; }
-                    .pdf-page-img { width: 100%; height: auto; display: block; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 12px; }
-                    .pdf-text-layer { margin-top: 14px; font-size: 13.5px; }
-                    p { margin: 0 0 8px 0; text-align: justify; line-height: 1.5; }
-                    h3 { color: #0f172a; margin: 16px 0 8px 0; font-size: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
-                </style>
-            </head>
-            <body>
-        `;
+    // 获取第一页的实际点阵尺寸 (1 pt = 1/72 inch)
+    const firstPage = await pdf.getPage(1);
+    const initialView = firstPage.getViewport({ scale: 1.0 });
+    const pageWidthPt = initialView.width;
+    const pageHeightPt = initialView.height;
+    firstPage.cleanup();
 
-        let previewHtml = '';
-
-        for (let i = 1; i <= total; i++) {
-            setStatus(`正在高精度渲染并重构第 ${i}/${total} 页图文...`, Math.round((i / total) * 85));
-            const page = await pdf.getPage(i);
-
-            // 1. 逐页高精度栅格化出背景图和内嵌视觉元素
-            let pageImgDataUrl = '';
-            if (isHighFidelity) {
-                const viewport = page.getViewport({ scale: 1.5 });
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-                await page.render({ canvasContext: ctx, viewport }).promise;
-                pageImgDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-            }
-
-            // 2. 提取文本流与结构化断行
-            const textContent = await page.getTextContent();
-            let lastY = null;
-            let lineBuffer = '';
-            let pageHtmlText = '';
-
-            for (let item of textContent.items) {
-                if (lastY !== null && Math.abs(item.transform[5] - lastY) > 8) {
-                    if (lineBuffer.trim()) {
-                        pageHtmlText += `<p>${lineBuffer.trim()}</p>`;
-                    }
-                    lineBuffer = item.str;
-                } else {
-                    lineBuffer += (lineBuffer ? ' ' : '') + item.str;
+    let docHtmlContent = `
+        <html xmlns:v="urn:schemas-microsoft-com:vml"
+              xmlns:o="urn:schemas-microsoft-com:office:office"
+              xmlns:w="urn:schemas-microsoft-com:office:word"
+              xmlns:m="http://schemas.microsoft.com/office/2004/12/omml"
+              xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+            <meta charset="utf-8">
+            <title>${file.name}</title>
+            <!--[if gte mso 9]>
+            <xml>
+                <w:WordDocument>
+                    <w:View>Print</w:View>
+                    <w:Zoom>100</w:Zoom>
+                    <w:DoNotOptimizeForBrowser/>
+                </w:WordDocument>
+            </xml>
+            <![endif]-->
+            <style>
+                @page Section1 {
+                    size: ${pageWidthPt}pt ${pageHeightPt}pt;
+                    margin: 0cm;
+                    mso-header-margin: 0cm;
+                    mso-footer-margin: 0cm;
+                    mso-paper-source: 0;
                 }
-                lastY = item.transform[5];
-            }
-            if (lineBuffer.trim()) {
-                pageHtmlText += `<p>${lineBuffer.trim()}</p>`;
-            }
+                div.Section1 { page: Section1; }
+                body { margin: 0px; padding: 0px; font-family: 'Segoe UI', Calibri, Arial, sans-serif; }
+                .page-box {
+                    position: relative;
+                    width: ${pageWidthPt}pt;
+                    height: ${pageHeightPt}pt;
+                    page-break-after: always;
+                    overflow: hidden;
+                }
+                .bg-canvas-img {
+                    position: absolute;
+                    left: 0pt;
+                    top: 0pt;
+                    width: ${pageWidthPt}pt;
+                    height: ${pageHeightPt}pt;
+                    z-index: -1;
+                }
+                .editable-text-layer {
+                    position: absolute;
+                    left: 0pt;
+                    top: 0pt;
+                    width: ${pageWidthPt}pt;
+                    height: ${pageHeightPt}pt;
+                }
+                p { margin: 0; padding: 0; line-height: 1.2; }
+            </style>
+        </head>
+        <body>
+        <div class="Section1">
+    `;
 
-            // 3. 构造单页混合结构
-            const singlePageHtml = `
-                <div class="pdf-page-container">
-                    ${isHighFidelity ? `
-                        <div style="font-size: 11px; color: #64748b; margin-bottom: 6px; font-weight:600;">第 ${i} 页 原稿版式底图 (全图文/背景完整保留)</div>
-                        <img class="pdf-page-img" src="${pageImgDataUrl}" />
-                    ` : ''}
-                    <div class="pdf-text-layer">
-                        <h3>第 ${i} 页 可编辑文字内容</h3>
-                        ${pageHtmlText || '<p style="color:#94a3b8;">（本页主要为图形或手写扫描件，无字符流）</p>'}
-                    </div>
-                </div>
+    let previewHtml = '';
+
+    for (let i = 1; i <= total; i++) {
+        setStatus(`正在重构第 ${i}/${total} 页几何坐标...`, Math.round((i / total) * 85));
+        const page = await pdf.getPage(i);
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+        const curWidth = unscaledViewport.width;
+        const curHeight = unscaledViewport.height;
+
+        // 渲染 2 倍超清底图保证清晰度
+        const renderViewport = page.getViewport({ scale: 2.0 });
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = renderViewport.width;
+        canvas.height = renderViewport.height;
+        await page.render({ canvasContext: ctx, viewport: renderViewport }).promise;
+        const pageImgDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
+        // 提取绝对坐标文字流
+        const textContent = await page.getTextContent();
+        let pageTextsHtml = '';
+
+        for (let item of textContent.items) {
+            // PDF 坐标系的原点在左下角，转换为 Word/HTML 的左上角原点
+            const textX = item.transform[4];
+            const textY = curHeight - item.transform[5] - (item.height || 10);
+            const fontSize = Math.sqrt(item.transform[0] * item.transform[0] + item.transform[1] * item.transform[1]);
+
+            pageTextsHtml += `
+                <span style="position: absolute; left: ${textX.toFixed(1)}pt; top: ${textY.toFixed(1)}pt; font-size: ${fontSize.toFixed(1)}pt; white-space: pre; color: rgba(0,0,0,0.85);">
+                    ${item.str}
+                </span>
             `;
-
-            docHtmlContent += singlePageHtml;
-            previewHtml += singlePageHtml;
-            page.cleanup();
         }
 
-        docHtmlContent += `</body></html>`;
+        // 使用 Word 专用的 v:shape 锚定底图，确保 100% 贴合纸张且在底层
+        const pageSection = `
+            <div class="page-box" style="width: ${curWidth}pt; height: ${curHeight}pt;">
+                <!--[if gte vml 1]>
+                <v:image style="position:absolute; left:0pt; top:0pt; width:${curWidth}pt; height:${curHeight}pt; z-index:-1;"
+                         src="${pageImgDataUrl}">
+                </v:image>
+                <![endif]-->
+                <![if !vml]>
+                <img class="bg-canvas-img" src="${pageImgDataUrl}" style="width:${curWidth}pt; height:${curHeight}pt;" />
+                <![endif]>
+                <div class="editable-text-layer">
+                    ${pageTextsHtml}
+                </div>
+            </div>
+        `;
 
-        document.getElementById('pdf2word-preview').innerHTML = previewHtml;
-        generatedWordData = {
-            html: docHtmlContent,
-            fileName: `${file.name.replace(/\.pdf$/i, '')}_高保真转换.doc`
-        };
-
-        document.getElementById('btn-export-word').disabled = false;
-        setStatus('Word 图文高保真解析完毕！点击下方按钮下载', 100);
+        docHtmlContent += pageSection;
+        previewHtml += pageSection;
+        page.cleanup();
     }
 
+    docHtmlContent += `</div></body></html>`;
+
+    document.getElementById('pdf2word-preview').innerHTML = previewHtml;
+    generatedWordData = {
+        html: docHtmlContent,
+        fileName: `${file.name.replace(/\.pdf$/i, '')}_定点无损.doc`
+    };
+
+    document.getElementById('btn-export-word').disabled = false;
+    setStatus('定点无损 Word 构建完成，图片尺寸已锁定！', 100);
+}
     function downloadGeneratedDoc() {
         if (!generatedWordData) return;
         const blob = new Blob(['\ufeff' + generatedWordData.html], { 
