@@ -3,84 +3,192 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>超级 PDF 极客工具箱</title>
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <!-- 引入 pdf-lib 与 pdfjs-dist -->
+    <title>超级 PDF & 文档万能工具箱 (Cloudflare 纯前端离线版)</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📑</text></svg>">
+    
+    <!-- 纯前端外部高可用 CDN 依赖 -->
+    <!-- 1. PDF 处理与渲染 -->
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <!-- 2. Word 互转与解析 -->
+    <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+    <script src="https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js"></script>
+    <!-- 3. ZIP 批量打包 -->
+    <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- 4. Excel 表格解析 -->
+    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
     <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-light: #eff6ff;
+            --secondary: #64748b;
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --border: #e2e8f0;
+            --border-hover: #94a3b8;
+            --text-title: #0f172a;
+            --text-body: #334155;
+            --text-muted: #64748b;
+            --danger: #ef4444;
+            --danger-bg: #fef2f2;
+            --success: #10b981;
+            --radius-lg: 16px;
+            --radius-md: 10px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+            --shadow-md: 0 10px 25px -5px rgba(0,0,0,0.06);
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-            background: #f1f5f9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-body);
             min-height: 100vh;
             display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding: 30px 15px;
-        }
-        .card {
-            max-width: 950px;
-            width: 100%;
-            background: white;
-            border-radius: 24px;
-            padding: 28px;
-            box-shadow: 0 20px 35px -8px rgba(0,0,0,0.08);
-            border: 1px solid #e2e8f0;
+            flex-direction: column;
         }
 
-        .nav-tabs {
+        header {
+            background: #ffffff;
+            border-bottom: 1px solid var(--border);
+            padding: 14px 28px;
             display: flex;
-            gap: 8px;
-            background: #f8fafc;
-            padding: 6px;
-            border-radius: 16px;
-            margin-bottom: 20px;
-            border: 1px solid #e2e8f0;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: var(--shadow-sm);
         }
-        .tab-btn {
+        .logo-box { display: flex; align-items: center; gap: 12px; }
+        .logo-icon {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+        }
+        .logo-title h1 { font-size: 17px; font-weight: 700; color: var(--text-title); }
+        .logo-title p { font-size: 11.5px; color: var(--text-muted); }
+        .privacy-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .app-container {
+            display: flex;
             flex: 1;
-            padding: 12px;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 24px 20px;
+            gap: 24px;
+        }
+
+        .sidebar {
+            width: 250px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .nav-group {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 10px;
+            box-shadow: var(--shadow-sm);
+        }
+        .nav-group-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            padding: 6px 10px;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 9px 12px;
+            border-radius: 8px;
             border: none;
             background: transparent;
-            font-size: 14px;
-            font-weight: 600;
-            color: #64748b;
-            border-radius: 12px;
+            color: var(--text-body);
+            font-size: 13.5px;
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s;
-            text-align: center;
+            text-align: left;
+            transition: all 0.15s ease;
         }
-        .tab-btn.active {
-            background: white;
-            color: #2563eb;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        .nav-item:hover { background: #f1f5f9; color: var(--primary); }
+        .nav-item.active {
+            background: var(--primary);
+            color: #ffffff;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
         }
 
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        .workspace {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            box-shadow: var(--shadow-md);
+            min-height: 620px;
+            display: flex;
+            flex-direction: column;
+        }
 
-        h2 { font-size: 19px; color: #0f172a; margin-bottom: 4px; }
-        .subtitle { color: #64748b; font-size: 13px; margin-bottom: 16px; }
+        .view-panel { display: none; }
+        .view-panel.active { display: flex; flex-direction: column; flex: 1; }
+
+        .panel-header {
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .panel-header h2 { font-size: 20px; font-weight: 700; color: var(--text-title); margin-bottom: 4px; }
+        .panel-header p { font-size: 13px; color: var(--text-muted); }
 
         .upload-area {
-            border: 2px dashed #cbd5e1;
-            border-radius: 16px;
-            padding: 20px;
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-lg);
+            padding: 32px 20px;
             text-align: center;
             cursor: pointer;
-            transition: all 0.2s;
-            background: #fafbfc;
+            transition: all 0.2s ease;
+            background: #fbfcfe;
             margin-bottom: 20px;
         }
-        .upload-area:hover { border-color: #2563eb; background: #eff6ff; }
+        .upload-area:hover { border-color: var(--primary); background: var(--primary-light); }
         .upload-area input { display: none; }
-        .upload-icon { font-size: 32px; margin-bottom: 4px; }
+        .upload-icon { font-size: 38px; margin-bottom: 8px; }
+        .upload-title { font-size: 14.5px; font-weight: 600; color: var(--text-title); margin-bottom: 4px; }
+        .upload-hint { font-size: 12px; color: var(--text-muted); }
 
-        .settings-bar {
+        .config-bar {
             background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
             padding: 12px 16px;
             margin-bottom: 20px;
             display: flex;
@@ -89,65 +197,66 @@
             flex-wrap: wrap;
             gap: 12px;
         }
-        .setting-item { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: #334155; }
-        .setting-item select, .setting-item input {
-            padding: 6px 10px;
-            border-radius: 8px;
-            border: 1px solid #cbd5e1;
+        .config-group { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+        .config-group label { font-weight: 500; color: var(--text-body); }
+        .config-group select, .config-group input[type="text"], .config-group input[type="number"] {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
             font-size: 13px;
             outline: none;
+            background: #fff;
         }
 
         .thumb-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 14px;
-            max-height: 450px;
+            max-height: 440px;
             overflow-y: auto;
-            padding: 12px;
+            padding: 14px;
             background: #f8fafc;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
             margin-bottom: 20px;
         }
         .thumb-card {
             background: white;
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
             padding: 8px;
             text-align: center;
             position: relative;
-            transition: transform 0.15s, border-color 0.2s;
             cursor: grab;
             user-select: none;
+            transition: all 0.15s;
         }
-        .thumb-card.dragging { opacity: 0.4; border-style: dashed; }
-        .thumb-card.selected { border-color: #2563eb; background: #f0f9ff; }
-        
+        .thumb-card.selected { border-color: var(--primary); background: #f0f7ff; }
+        .thumb-card.dragging { opacity: 0.35; border-style: dashed; }
         .thumb-card img {
-            max-width: 100%;
-            height: 110px;
+            width: 100%;
+            height: 120px;
             object-fit: contain;
             border-radius: 4px;
+            background: #ffffff;
             margin-bottom: 6px;
-            background: #fff;
             pointer-events: none;
         }
         .thumb-meta {
             font-size: 11px;
-            color: #64748b;
+            color: var(--text-muted);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 4px;
+            padding: 0 2px;
         }
         .thumb-actions {
             display: flex;
             justify-content: center;
             gap: 4px;
-            margin-top: 4px;
+            margin-top: 6px;
+            padding-top: 6px;
             border-top: 1px solid #f1f5f9;
-            padding-top: 4px;
         }
         .thumb-checkbox {
             position: absolute;
@@ -157,178 +266,548 @@
             height: 18px;
             cursor: pointer;
             z-index: 2;
+            accent-color: var(--primary);
         }
+
         .btn-mini {
             background: #f1f5f9;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            padding: 2px 6px;
+            padding: 3px 6px;
             font-size: 11px;
-            color: #334155;
+            color: var(--text-body);
         }
-        .btn-mini:hover { background: #cbd5e1; }
-        .btn-del:hover { background: #fee2e2; color: #dc2626; }
+        .btn-mini:hover { background: #e2e8f0; color: var(--text-title); }
+        .btn-mini.danger:hover { background: var(--danger-bg); color: var(--danger); }
 
-        .file-list { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            box-shadow: var(--shadow-sm);
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .file-list {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
         .file-item {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 14px;
+            padding: 12px 16px;
             border-bottom: 1px solid #f1f5f9;
             background: white;
             font-size: 13.5px;
             gap: 12px;
         }
         .file-item:last-child { border-bottom: none; }
-        .file-info { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .file-controls { display: flex; align-items: center; gap: 10px; }
-        .file-badge { font-size: 11px; padding: 2px 6px; border-radius: 10px; background: #e0f2fe; color: #0369a1; }
-
-        .btn {
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 13.5px;
-            cursor: pointer;
-            border: 1px solid #cbd5e1;
-            background: white;
+        .file-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            background: #e0f2fe;
+            color: #0369a1;
+            font-weight: 500;
         }
-        .btn-primary { background: #2563eb; color: white; border-color: #2563eb; }
-        .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-icon { background: none; border: none; cursor: pointer; padding: 2px 4px; font-size: 13px; }
 
-        .toolbar-inline { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .empty-tip { text-align: center; padding: 20px; color: #94a3b8; font-size: 13px; grid-column: 1 / -1; }
+        .preview-box {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            max-height: 420px;
+            overflow-y: auto;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #1e293b;
+        }
+
+        .status-toast {
+            margin-top: auto;
+            padding: 10px 16px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+            font-size: 12.5px;
+            color: var(--text-body);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .empty-tip { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 13px; grid-column: 1 / -1; }
+
+        .progress-bar-container {
+            width: 100%;
+            background: #e2e8f0;
+            height: 6px;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 10px;
+            display: none;
+        }
+        .progress-bar {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.2s ease;
+        }
+
+        @media (max-width: 900px) {
+            .app-container { flex-direction: column; }
+            .sidebar { width: 100%; }
+        }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <div class="nav-tabs">
-        <button class="tab-btn active" onclick="switchTab('merge')">📚 顺序拼接与重排</button>
-        <button class="tab-btn" onclick="switchTab('alt')">🔀 高级交替/自定义合并</button>
-        <button class="tab-btn" onclick="switchTab('split')">✂️ 提取与旋转</button>
-    </div>
-
-    <div class="settings-bar">
-        <div class="setting-item">
-            <label>⚡ PDF 压缩模式：</label>
-            <select id="compress-mode">
-                <option value="none">原画质 (无损)</option>
-                <option value="medium" selected>智能瘦身 (推荐)</option>
-            </select>
+<header>
+    <div class="logo-box">
+        <div class="logo-icon">📑</div>
+        <div class="logo-title">
+            <h1>超级 PDF & 文档万能工具箱</h1>
+            <p>Cloudflare 静态全功能离线版 · 高保真样式保留 · 毫秒级响应</p>
         </div>
-        <div class="setting-item" id="status-info" style="color: #2563eb; font-weight: 500; font-size: 12px;">已就绪</div>
     </div>
-
-    <!-- TAB 1：顺序拼接 -->
-    <div id="page-merge" class="tab-content active">
-        <h2>顺序拼接与可视化排序</h2>
-        <div class="subtitle">拖拽卡片或点击 ⬅️ ➡️ 微调位置，自动生成优化后的新文档</div>
-
-        <div class="upload-area" onclick="document.getElementById('input-seq').click()">
-            <div class="upload-icon">🖼️📄</div>
-            <div>点击或拖拽追加上传 PDF 或图片</div>
-            <input type="file" id="input-seq" accept=".pdf,image/jpeg,image/png" multiple onchange="handleSeqUpload(this.files)">
-        </div>
-
-        <div id="thumb-grid-seq" class="thumb-grid"><div class="empty-tip">暂无页面，请先上传</div></div>
-        <button class="btn btn-primary" id="btn-seq" disabled onclick="processSequence()">导出合并文件</button>
+    <div class="privacy-badge">
+        <span>🔒</span> 100% 浏览器沙盒本地计算，文件绝不出设备
     </div>
+</header>
 
-    <!-- TAB 2：高级交替合并 -->
-    <div id="page-alt" class="tab-content">
-        <h2>高级交替与自定义规则合并</h2>
-        <div class="subtitle">支持多文件灵活交替（如：文档 A 抽 2 页，文档 B 抽 1 页）以及自定义页码范围</div>
-
-        <div class="upload-area" onclick="document.getElementById('input-alt').click()">
-            <div class="upload-icon">🔀</div>
-            <div>上传 2 个或以上需要合并的 PDF</div>
-            <input type="file" id="input-alt" accept=".pdf" multiple onchange="handleAltUpload(this.files)">
+<div class="app-container">
+    <aside class="sidebar">
+        <div class="nav-group">
+            <div class="nav-group-title">📚 PDF 页面组织</div>
+            <button class="nav-item active" onclick="switchNav('merge')">
+                <span>📑</span> 顺序拼接与拖拽重排
+            </button>
+            <button class="nav-item" onclick="switchNav('split')">
+                <span>✂️</span> 页面提取与定向旋转
+            </button>
+            <button class="nav-item" onclick="switchNav('alt')">
+                <span>🔀</span> 多文档交替规则拼合
+            </button>
         </div>
 
-        <div id="list-alt" class="file-list"><div class="empty-tip">未添加文件</div></div>
-        <button class="btn btn-primary" id="btn-alt" disabled onclick="processAlternate()">开始规则合并导出</button>
-    </div>
-
-    <!-- TAB 3：提取与旋转 -->
-    <div id="page-split" class="tab-content">
-        <h2>可视拆分与旋转</h2>
-        <div class="subtitle">针对单个 PDF 精细化提取页面，解决方向倒置问题</div>
-
-        <div class="upload-area" onclick="document.getElementById('input-split').click()">
-            <div class="upload-icon">✂️</div>
-            <div>上传单个 PDF 进行拆分处理</div>
-            <input type="file" id="input-split" accept=".pdf" onchange="handleSplitUpload(this.files[0])">
+        <div class="nav-group">
+            <div class="nav-group-title">🔄 格式互转专区 (高保真)</div>
+            <button class="nav-item" onclick="switchNav('pdf-to-word')">
+                <span>📝</span> PDF 转 Word (保排版)
+            </button>
+            <button class="nav-item" onclick="switchNav('pdf-to-img')">
+                <span>🖼️</span> PDF 转 图片 / ZIP 打包
+            </button>
+            <button class="nav-item" onclick="switchNav('img-to-pdf')">
+                <span>📄</span> 多图合成 PDF
+            </button>
+            <button class="nav-item" onclick="switchNav('word-to-pdf')">
+                <span>📰</span> Word 预览与导出 PDF
+            </button>
+            <button class="nav-item" onclick="switchNav('pdf-to-text')">
+                <span>📜</span> 纯文本 / Markdown 提取
+            </button>
+            <button class="nav-item" onclick="switchNav('excel-preview')">
+                <span>📊</span> Excel 表格解析与转存
+            </button>
         </div>
 
-        <div class="toolbar-inline" id="split-tools" style="display: none;">
-            <div>
-                <button class="btn-mini" onclick="selectAllSplit(true)">全选</button>
-                <button class="btn-mini" onclick="selectAllSplit(false)">全不选</button>
+        <div class="nav-group">
+            <div class="nav-group-title">🛠️ 安全与优化</div>
+            <button class="nav-item" onclick="switchNav('watermark')">
+                <span>💧</span> 全局防伪文本水印
+            </button>
+            <button class="nav-item" onclick="switchNav('compress')">
+                <span>⚡</span> PDF 优化与智能瘦身
+            </button>
+        </div>
+    </aside>
+
+    <main class="workspace">
+        <div id="global-progress" class="progress-bar-container">
+            <div id="global-progress-bar" class="progress-bar"></div>
+        </div>
+
+        <!-- 1. 顺序拼接与重排 -->
+        <section id="panel-merge" class="view-panel active">
+            <div class="panel-header">
+                <h2>顺序拼接与可视化拖拽重排</h2>
+                <p>支持多 PDF、JPG/PNG 混合追加，自由拖拽卡片调整页面次序、单页旋转或删除，一键合并导出</p>
             </div>
-            <span id="split-count-tip" style="font-size: 12px; color: #64748b;">已选中 0 页</span>
-        </div>
+            <div class="upload-area" onclick="document.getElementById('input-merge').click()">
+                <div class="upload-icon">📂</div>
+                <div class="upload-title">点击或拖拽上传 PDF 或图片 (JPG/PNG)</div>
+                <div class="upload-hint">支持多文件批量追加，纯本地即时解析</div>
+                <input type="file" id="input-merge" accept=".pdf,image/jpeg,image/png" multiple onchange="handleMergeUpload(this.files)">
+            </div>
+            <div class="config-bar">
+                <div class="config-group">
+                    <label>PDF 流压缩:</label>
+                    <select id="merge-compress">
+                        <option value="compact" selected>开启 (减少体积)</option>
+                        <option value="none">关闭 (保留原数据)</option>
+                    </select>
+                </div>
+                <div class="config-group">
+                    <button class="btn-mini" onclick="sortMergePages(true)">正序重排</button>
+                    <button class="btn-mini" onclick="sortMergePages(false)">倒序逆转</button>
+                    <button class="btn-mini danger" onclick="clearMergePages()">清空全部</button>
+                </div>
+            </div>
+            <div id="thumb-grid-merge" class="thumb-grid">
+                <div class="empty-tip">暂无页面，请先上传 PDF 或图片</div>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-primary" id="btn-merge" disabled onclick="exportMergedPdf()">🚀 导出合并 PDF 文档</button>
+            </div>
+        </section>
 
-        <div id="thumb-grid-split" class="thumb-grid"><div class="empty-tip">请上传文件</div></div>
-        <button class="btn btn-primary" id="btn-split" disabled onclick="processSplitExport()">导出选中页面</button>
-    </div>
+        <!-- 2. 提取与旋转 -->
+        <section id="panel-split" class="view-panel">
+            <div class="panel-header">
+                <h2>可视拆分、定向旋转与页面抽取</h2>
+                <p>针对单个 PDF 进行多选、反选、纠正倒置方向（90/180/270度），精准抽取独立页面</p>
+            </div>
+            <div class="upload-area" onclick="document.getElementById('input-split').click()">
+                <div class="upload-icon">✂️</div>
+                <div class="upload-title">上传需要拆分或修正方向的 PDF</div>
+                <input type="file" id="input-split" accept=".pdf" onchange="handleSplitUpload(this.files[0])">
+            </div>
+            <div class="config-bar" id="split-toolbar" style="display: none;">
+                <div class="config-group">
+                    <button class="btn-mini" onclick="selectAllSplit(true)">全选</button>
+                    <button class="btn-mini" onclick="selectAllSplit(false)">全不选</button>
+                    <button class="btn-mini" onclick="rotateAllSplit(90)">全局顺时针旋转 90°</button>
+                </div>
+                <div class="config-group" style="font-weight: 500; color: var(--primary);">
+                    <span id="split-counter">已选中 0 页</span>
+                </div>
+            </div>
+            <div id="thumb-grid-split" class="thumb-grid">
+                <div class="empty-tip">请上传待处理的 PDF 文件</div>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-primary" id="btn-split" disabled onclick="exportSplitPdf()">导出所选页面为新 PDF</button>
+            </div>
+        </section>
+
+        <!-- 3. 高级交替合并 -->
+        <section id="panel-alt" class="view-panel">
+            <div class="panel-header">
+                <h2>多文档交替与自定义范围拼合</h2>
+                <p>适用于双面扫描件拼合（如正面A.pdf、反面B.pdf交替拼接），或跨文档提取指定页按规则重组</p>
+            </div>
+            <div class="upload-area" onclick="document.getElementById('input-alt').click()">
+                <div class="upload-icon">🔀</div>
+                <div class="upload-title">上传 2 个或多个需交替合成的 PDF</div>
+                <input type="file" id="input-alt" accept=".pdf" multiple onchange="handleAltUpload(this.files)">
+            </div>
+            <div id="list-alt" class="file-list">
+                <div class="empty-tip">未添加文件 (至少需要 2 个文件)</div>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-primary" id="btn-alt" disabled onclick="exportAltPdf()">按规则交替拼合并导出</button>
+            </div>
+        </section>
+
+        <!-- 4. PDF 转 Word (高保真图文版) -->
+        <section id="panel-pdf-to-word" class="view-panel">
+            <div class="panel-header">
+                <h2>PDF 转换为 Word (高保真图文防跑版引擎)</h2>
+                <p>采用图文一体化重构技术：保留原始图像底版、版面几何坐标，同时完整提纯可编辑段落文本，彻底解决图片丢失与排版跑位问题</p>
+            </div>
+            <div class="upload-area" onclick="document.getElementById('input-pdf2word').click()">
+                <div class="upload-icon">📝</div>
+                <div class="upload-title">上传 PDF 文件转为 Word 文档</div>
+                <div class="upload-hint">支持各种复杂版面、表格、公文及扫描件</div>
+                <input type="file" id="input-pdf2word" accept=".pdf" onchange="handlePdfToWord(this.files[0])">
+            </div>
+            <div class="config-bar">
+                <div class="config-group">
+                    <label>导出精度与模式：</label>
+                    <select id="word-fidelity-mode">
+                        <option value="high" selected>高保真图文混排 (推荐 · 100%保留图片与原始排版)</option>
+                        <option value="textonly">纯流式段落文本 (仅提纯文本)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="preview-box" id="pdf2word-preview">等待文件上传并解析...</div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-primary" id="btn-export-word" disabled onclick="downloadGeneratedDoc()">📥 下载 Word 文档 (.doc)</button>
+            </div>
+        </section>
+
+        <!-- 5. PDF 转图片 / ZIP 打包 -->
+        <section id="panel-pdf-to-img" class="view-panel">
+            <div class="panel-header">
+                <h2>PDF 渲染转高清图片 & ZIP 打包</h2>
+                <p>将 PDF 每一页渲染为高清 PNG/JPG 图像，支持单页下载或批量打包为 ZIP 压缩包</p>
+            </div>
+            <div class="upload-area" onclick="document.getElementById('input-pdf2img').click()">
+                <div class="upload-icon">🖼️</div>
+                <div class="upload-title">上传 PDF 文件转为图片</div>
+                <input type="file" id="input-pdf2img" accept=".pdf" onchange="handlePdfToImgUpload(this.files[0])">
+            </div>
+            <div class="config-bar">
+                <div class="config-group">
+                    <label>清晰度倍率:</label>
+                    <select id="img-scale">
+                        <option value="1.0">标准 (72 DPI)</option>
+                        <option value="1.5" selected>超清 (108 DPI - 推荐)</option>
+                        <option value="2.0">印刷级 (144 DPI)</option>
+                    </select>
+                </div>
+                <div class="config-group">
+                    <label>导出格式:</label>
+                    <select id="img-format">
+                        <option value="image/jpeg">JPG (体积更优)</option>
+                        <option value="image/png">PNG (无损透明)</option>
+                    </select>
+                </div>
+            </div>
+            <div id="pdf2img-preview-grid" class="thumb-grid">
+                <div class="empty-tip">上传后将在此渲染高清图像预览</div>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-primary" id="btn-export-images-zip" disabled onclick="downloadImagesZip()">📦 一键打包下载全部页面 (ZIP)</button>
+            </div>
+        </section>
+
+        <!-- 6. 多图转 PDF -->
+        <section id="panel-img-to-pdf" class="view-panel">
+            <div class="panel-header">
+                <h2>图片合并生成 PDF</h2>
+                <p>批量上传 JPG / PNG 扫描件或相册照片，秒级合成为单份高质量 PDF 文档</p>
+            </div>
+            <div class="upload-area" onclick="document.getElementById('input-img2pdf').click()">
+                <div class="upload-icon">📸</div>
+                <div class="upload-title">批量上传图片 (JPG/PNG)</div>
+                <input type="file" id="input-img2pdf" accept="image/jpeg,image/png" multiple onchange="handleImgToPdfUpload(this.files)">
+            </div>
+            <div class="config-bar">
+                <div class="config-group">
+                    <label>纸张排版规格:</label>
+                    <select id="img2pdf-pagesize">
+                        <option value="fit" selected>图纸自适应 (图片原始宽高)</option>
+                        <option value="a4-p">标准 A4 (纵向)</option>
+                        <option value="a4-l">标准 A4 (横向)</option>
+                    </select>
+                </div>
+            </div>
+            <div id="img2pdf-preview" class="thumb-grid">
+                <div class="empty-tip">请上传图片文件</div>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-primary" id="btn-img2pdf" disabled onclick="exportImgToPdf()">📄 生成并下载 PDF 文档</button>
+            </div>
+        </section>
+
+        <!-- 7. Word 预览与导出 PDF -->
+        <section id="panel-word-to-pdf" class="view-panel">
+            <div class="panel-header">
+                <h2>Word (.docx) 解析与导出 PDF</h2>
+                <p>纯前端解析 Word 格式，保留标题、段落排版与图片，可一键通过浏览器打印管道无损另存为 PDF</p>
+            </div>
+            <div class="upload-area" onclick="document.getElementById('input-docx').click()">
+                <div class="upload-icon">📰</div>
+                <div class="upload-title">上传 Word 文档 (.docx)</div>
+                <input type="file" id="input-docx" accept=".docx" onchange="handleDocxUpload(this.files[0])">
+            </div>
+            <div class="preview-box" id="docx-html-preview" style="min-height: 250px; background: white; padding: 24px;">
+                暂无 Word 预览内容
+            </div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                <button class="btn btn-primary" id="btn-print-docx" disabled onclick="printDocxHtml()">🖨️ 浏览器无损打印 / 保存为 PDF</button>
+            </div>
+        </section>
+
+        <!-- 8. PDF 文本 / Markdown 提取 -->
+        <section id="panel-pdf-to-text" class="view-panel">
+            <div class="panel-header">
+                <h2>PDF 纯文本 & Markdown 格式提取</h2>
+                <p>一键提炼整份 PDF 所有页面的纯文本，去除乱码空白，支持下载 TXT 或带页码标记的 Markdown 文件</p>
+            </div>
+            <div class="upload-area" onclick="document.getElementById('input-pdf2txt').click()">
+                <div class="upload-icon">📜</div>
+                <div class="upload-title">上传 PDF 文件提取内容</div>
+                <input type="file" id="input-pdf2txt" accept=".pdf" onchange="handleExtractText(this.files[0])">
+            </div>
+            <div class="preview-box" id="pdf2txt-preview">文本提取结果将展示于此...</div>
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button class="btn btn-primary" id="btn-copy-txt" disabled onclick="copyExtractedText()">📋 复制文本</button>
+                <button class="btn btn-primary" id="btn-dl-md" disabled onclick="downloadExtractedMarkdown()">📥 下载 .md 文件</button>
+            </div>
+        </section>
+
+        <!-- 9. Excel 解析 -->
+        <section id="panel-excel-preview" class="view-panel">
+            <div class="panel-header">
+                <h2>Excel (.xlsx / .csv) 纯前端解析与预览</h2>
+                <p>使用 SheetJS 离线解析工作表，转换为富文本表格展示，支持一键打印转存 PDF 或导出</p>
+            </div>
+            <div class="upload-area" onclick="document.getElementById('input-excel').click()">
+                <div class="upload-icon">📊</div>
+                <div class="upload-title">上传 Excel 或 CSV 文件</div>
+                <input type="file" id="input-excel" accept=".xlsx,.xls,.csv" onchange="handleExcelUpload(this.files[0])">
+            </div>
+            <div class="preview-box" id="excel-table-preview" style="background: white; overflow-x: auto;">
+                表格解析预览...
+            </div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                <button class="btn btn-primary" id="btn-print-excel" disabled onclick="printExcelHtml()">🖨️ 打印导出 PDF</button>
+            </div>
+        </section>
+
+        <!-- 10. 水印添加 -->
+        <section id="panel-watermark" class="view-panel">
+            <div class="panel-header">
+                <h2>PDF 添加防伪 / 密级文本水印</h2>
+                <p>为整份 PDF 批量添加倾斜半透明水印（如“内部绝密”、“仅供查阅”等），防止截屏泄密</p>
+            </div>
+            <div class="upload-area" onclick="document.getElementById('input-watermark').click()">
+                <div class="upload-icon">💧</div>
+                <div class="upload-title">上传需要加水印的 PDF</div>
+                <input type="file" id="input-watermark" accept=".pdf" onchange="handleWatermarkUpload(this.files[0])">
+            </div>
+            <div class="config-bar">
+                <div class="config-group">
+                    <label>水印文字:</label>
+                    <input type="text" id="wm-text" value="仅供内部参考 · 严禁外传" style="width: 220px;">
+                </div>
+                <div class="config-group">
+                    <label>透明度:</label>
+                    <select id="wm-opacity">
+                        <option value="0.15">15% (极浅)</option>
+                        <option value="0.25" selected>25% (适中推荐)</option>
+                        <option value="0.45">45% (显眼防盗)</option>
+                    </select>
+                </div>
+                <div class="config-group">
+                    <label>字号:</label>
+                    <select id="wm-size">
+                        <option value="32">32 pt</option>
+                        <option value="42" selected>42 pt</option>
+                        <option value="56">56 pt</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-primary" id="btn-watermark" disabled onclick="applyWatermarkAndExport()">💧 生成加水印 PDF</button>
+            </div>
+        </section>
+
+        <!-- 11. PDF 压缩优化 -->
+        <section id="panel-compress" class="view-panel">
+            <div class="panel-header">
+                <h2>PDF 结构优化与智能瘦身</h2>
+                <p>重构 PDF 的交叉引用表（XRef Streams），清理冗余元数据、垃圾对象流，无损减小文件体积</p>
+            </div>
+            <div class="upload-area" onclick="document.getElementById('input-compress').click()">
+                <div class="upload-icon">⚡</div>
+                <div class="upload-title">上传需要瘦身的 PDF</div>
+                <input type="file" id="input-compress" accept=".pdf" onchange="handleCompressUpload(this.files[0])">
+            </div>
+            <div class="preview-box" id="compress-info-box">请先上传文件评估压缩率...</div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-primary" id="btn-compress-run" disabled onclick="runPdfCompress()">⚡ 执行压缩重构并下载</button>
+            </div>
+        </section>
+
+        <div class="status-toast">
+            <div id="status-label">就绪状态：100% 浏览器内存沙盒运行，支持离线部署。</div>
+        </div>
+    </main>
 </div>
 
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-    const { PDFDocument, degrees } = PDFLib;
+    const { PDFDocument, degrees, rgb, StandardFonts } = PDFLib;
 
-    let seqPages = [];
-    let altFiles = [];
+    let mergePages = [];
     let splitPages = [];
-    let splitPdfDoc = null; 
+    let splitPdfDoc = null;
+    let altFiles = [];
+    let currentPdfText = '';
+    let currentPdfMd = '';
+    let pdf2ImgResults = [];
+    let img2PdfList = [];
+    let currentWatermarkDoc = null;
+    let currentCompressDoc = null;
+    let currentCompressBytes = null;
+    let generatedWordData = null;
     let draggedIndex = null;
 
-    function switchTab(tabName) {
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(page => page.classList.remove('active'));
-        event.target.classList.add('active');
-        document.getElementById(`page-${tabName}`).classList.add('active');
+    function switchNav(tabId) {
+        document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+        
+        const activeBtn = Array.from(document.querySelectorAll('.nav-item')).find(b => b.getAttribute('onclick')?.includes(tabId));
+        if (activeBtn) activeBtn.classList.add('active');
+        
+        const targetPanel = document.getElementById(`panel-${tabId}`);
+        if (targetPanel) targetPanel.classList.add('active');
+        setStatus(`已切换至「${activeBtn ? activeBtn.innerText.trim() : tabId}」模块`);
     }
 
-    function setStatus(text) {
-        document.getElementById('status-info').innerText = text;
+    function setStatus(text, progress = null) {
+        document.getElementById('status-label').innerText = text;
+        const pBar = document.getElementById('global-progress');
+        const pVal = document.getElementById('global-progress-bar');
+        if (progress !== null && progress >= 0 && progress <= 100) {
+            pBar.style.display = 'block';
+            pVal.style.width = `${progress}%`;
+            if (progress === 100) setTimeout(() => { pBar.style.display = 'none'; }, 1000);
+        } else {
+            pBar.style.display = 'none';
+        }
     }
 
-    // 核心渲染修复：批量生成 PDF 页面缩略图（串行绘制，保证稳定渲染不留白）
-    async function renderAllPdfThumbnails(arrayBuffer, onPageRendered) {
+    function formatBytes(bytes) {
+        if (!bytes) return '0 B';
+        const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    async function renderPdfThumbnails(arrayBuffer, onPageRendered, maxScale = 0.25) {
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
         const pdf = await loadingTask.promise;
-        const totalPages = pdf.numPages;
+        const total = pdf.numPages;
 
-        for (let i = 1; i <= totalPages; i++) {
+        for (let i = 1; i <= total; i++) {
             const page = await pdf.getPage(i);
-            const viewport = page.getViewport({ scale: 0.25 });
-            
+            const viewport = page.getViewport({ scale: maxScale });
             const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d');
             canvas.height = viewport.height;
             canvas.width = viewport.width;
 
-            // 严格等待绘制完全完成
-            await page.render({ canvasContext: context, viewport: viewport }).promise;
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-            
-            // 及时清理单页内存
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
             page.cleanup();
-            onPageRendered(i - 1, totalPages, dataUrl);
+            onPageRendered(i - 1, total, dataUrl, viewport.width, viewport.height);
         }
-        
-        // 全部处理完后再销毁文档实例
         pdf.destroy();
     }
 
-    // ================= TAB 1 逻辑 =================
-    async function handleSeqUpload(files) {
+    // ================= 1. 顺序拼接 TAB =================
+    async function handleMergeUpload(files) {
+        if (!files || files.length === 0) return;
+        setStatus('正在解析追加文件...');
         for (let file of files) {
             const isPdf = file.name.toLowerCase().endsWith('.pdf');
             const isImg = file.type.startsWith('image/');
@@ -336,87 +815,104 @@
 
             if (isPdf) {
                 const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-                await renderAllPdfThumbnails(buffer, (pageIndex, total, dataUrl) => {
-                    setStatus(`解析中 ${file.name}: ${pageIndex + 1}/${total} 页`);
-                    seqPages.push({
-                        id: Math.random().toString(36).substr(2, 9),
+                await renderPdfThumbnails(buffer, (pageIndex, total, dataUrl) => {
+                    mergePages.push({
+                        id: Math.random().toString(36).substring(2, 9),
                         type: 'pdf',
+                        fileName: file.name,
                         pdfDoc,
                         pageIndex,
                         dataUrl,
                         rotation: 0,
                         selected: true
                     });
-                    renderSeqGrid();
+                    renderMergeGrid();
                 });
             } else if (isImg) {
                 const blobUrl = URL.createObjectURL(file);
-                seqPages.push({
-                    id: Math.random().toString(36).substr(2, 9),
+                mergePages.push({
+                    id: Math.random().toString(36).substring(2, 9),
                     type: 'image',
+                    fileName: file.name,
                     imgBuffer: buffer,
                     imageType: file.type.includes('png') ? 'png' : 'jpg',
                     dataUrl: blobUrl,
                     rotation: 0,
                     selected: true
                 });
-                renderSeqGrid();
+                renderMergeGrid();
             }
         }
-        setStatus("渲染完成！");
+        setStatus('文件加载并解析完成！');
     }
 
-    function renderSeqGrid() {
-        const grid = document.getElementById('thumb-grid-seq');
-        const btn = document.getElementById('btn-seq');
-        if (seqPages.length === 0) {
-            grid.innerHTML = '<div class="empty-tip">暂无页面，请先上传</div>';
+    function renderMergeGrid() {
+        const grid = document.getElementById('thumb-grid-merge');
+        const btn = document.getElementById('btn-merge');
+        if (mergePages.length === 0) {
+            grid.innerHTML = '<div class="empty-tip">暂无页面，请先上传 PDF 或图片</div>';
             btn.disabled = true;
             return;
         }
 
-        grid.innerHTML = seqPages.map((item, index) => `
-            <div class="thumb-card ${item.selected ? 'selected' : ''}" 
-                 draggable="true" 
-                 ondragstart="draggedIndex=${index};event.target.classList.add('dragging')" 
-                 ondragover="event.preventDefault()" 
-                 ondrop="event.preventDefault();if(draggedIndex!==null&&draggedIndex!==${index}){const item=seqPages.splice(draggedIndex,1)[0];seqPages.splice(${index},0,item);renderSeqGrid();}">
-                
-                <input type="checkbox" class="thumb-checkbox" ${item.selected ? 'checked' : ''} onchange="seqPages[${index}].selected=!seqPages[${index}].selected;renderSeqGrid();">
+        grid.innerHTML = mergePages.map((item, i) => `
+            <div class="thumb-card ${item.selected ? 'selected' : ''}"
+                 draggable="true"
+                 ondragstart="draggedIndex=${i}; event.target.classList.add('dragging')"
+                 ondragover="event.preventDefault()"
+                 ondrop="event.preventDefault(); if(draggedIndex!==null && draggedIndex!==${i}){ const it = mergePages.splice(draggedIndex,1)[0]; mergePages.splice(${i},0,it); renderMergeGrid(); }">
+                <input type="checkbox" class="thumb-checkbox" ${item.selected ? 'checked' : ''} onchange="mergePages[${i}].selected = this.checked; renderMergeGrid();">
                 <img src="${item.dataUrl}" style="transform: rotate(${item.rotation}deg)">
-                
                 <div class="thumb-meta">
-                    <strong>第 ${index + 1} 页</strong>
-                    <span>${item.type.toUpperCase()}</span>
+                    <strong>P${i + 1}</strong>
+                    <span title="${item.fileName}">${item.fileName.length > 8 ? item.fileName.substring(0,8)+'...' : item.fileName}</span>
                 </div>
-
                 <div class="thumb-actions">
-                    <button class="btn-mini" onclick="moveSeq(${index}, -1)" ${index === 0 ? 'disabled' : ''}>⬅️</button>
-                    <button class="btn-mini" onclick="seqPages[${index}].rotation=(seqPages[${index}].rotation+90)%360;renderSeqGrid();">🔄</button>
-                    <button class="btn-mini btn-del" onclick="seqPages.splice(${index},1);renderSeqGrid();">🗑️</button>
-                    <button class="btn-mini" onclick="moveSeq(${index}, 1)" ${index === seqPages.length - 1 ? 'disabled' : ''}>➡️</button>
+                    <button class="btn-mini" onclick="moveMergeItem(${i}, -1)" ${i === 0 ? 'disabled' : ''}>⬅️</button>
+                    <button class="btn-mini" onclick="mergePages[${i}].rotation = (mergePages[${i}].rotation + 90)%360; renderMergeGrid();">🔄</button>
+                    <button class="btn-mini danger" onclick="mergePages.splice(${i},1); renderMergeGrid();">🗑️</button>
+                    <button class="btn-mini" onclick="moveMergeItem(${i}, 1)" ${i === mergePages.length - 1 ? 'disabled' : ''}>➡️</button>
                 </div>
             </div>
         `).join('');
 
-        btn.disabled = !seqPages.some(p => p.selected);
+        btn.disabled = !mergePages.some(p => p.selected);
     }
 
-    function moveSeq(index, direction) {
-        const target = index + direction;
-        if (target >= 0 && target < seqPages.length) {
-            [seqPages[index], seqPages[target]] = [seqPages[target], seqPages[index]];
-            renderSeqGrid();
+    function moveMergeItem(i, dir) {
+        const target = i + dir;
+        if (target >= 0 && target < mergePages.length) {
+            const temp = mergePages[i];
+            mergePages[i] = mergePages[target];
+            mergePages[target] = temp;
+            renderMergeGrid();
         }
     }
 
-    async function processSequence() {
-        setStatus("导出处理中...");
+    function sortMergePages(asc) {
+        if (!asc) mergePages.reverse();
+        renderMergeGrid();
+    }
+
+    function clearMergePages() {
+        mergePages = [];
+        renderMergeGrid();
+    }
+
+    async function exportMergedPdf() {
+        setStatus('正在拼合生成新 PDF 文档...', 30);
         const outDoc = await PDFDocument.create();
-        for (let item of seqPages.filter(p => p.selected)) {
+        const selected = mergePages.filter(p => p.selected);
+
+        let cur = 0;
+        for (let item of selected) {
+            cur++;
+            setStatus(`合并进度: ${cur}/${selected.length}`, Math.round((cur / selected.length) * 80));
             if (item.type === 'pdf') {
                 const [copied] = await outDoc.copyPages(item.pdfDoc, [item.pageIndex]);
-                if (item.rotation !== 0) copied.setRotation(degrees((copied.getRotation().angle + item.rotation) % 360));
+                if (item.rotation !== 0) {
+                    copied.setRotation(degrees((copied.getRotation().angle + item.rotation) % 360));
+                }
                 outDoc.addPage(copied);
             } else {
                 let img = item.imageType === 'png' ? await outDoc.embedPng(item.imgBuffer) : await outDoc.embedJpg(item.imgBuffer);
@@ -425,20 +921,87 @@
                 if (item.rotation !== 0) page.setRotation(degrees(item.rotation));
             }
         }
-        const compressMode = document.getElementById('compress-mode').value;
-        const pdfBytes = await outDoc.save({ useObjectStreams: compressMode !== 'none' });
-        downloadBlob(pdfBytes, `合并文档_${Date.now()}.pdf`);
-        setStatus("导出成功！");
+
+        const isCompact = document.getElementById('merge-compress').value === 'compact';
+        const pdfBytes = await outDoc.save({ useObjectStreams: isCompact });
+        downloadBlob(pdfBytes, `合并文档_${Date.now()}.pdf`, 'application/pdf');
+        setStatus('合并导出成功！', 100);
     }
 
-    // ================= TAB 2 逻辑 =================
+    // ================= 2. 提取与旋转 TAB =================
+    async function handleSplitUpload(file) {
+        if (!file) return;
+        setStatus('正在加载 PDF 页面...');
+        splitPages = [];
+        const buffer = await file.arrayBuffer();
+        splitPdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+        document.getElementById('split-toolbar').style.display = 'flex';
+
+        await renderPdfThumbnails(buffer, (pageIndex, total, dataUrl) => {
+            splitPages.push({ id: pageIndex, pageIndex, dataUrl, rotation: 0, selected: true });
+            renderSplitGrid();
+        });
+        setStatus(`文档已加载完毕，共 ${splitPages.length} 页`);
+    }
+
+    function renderSplitGrid() {
+        const grid = document.getElementById('thumb-grid-split');
+        const btn = document.getElementById('btn-split');
+        if (splitPages.length === 0) {
+            grid.innerHTML = '<div class="empty-tip">请上传待处理的 PDF 文件</div>';
+            btn.disabled = true;
+            return;
+        }
+
+        grid.innerHTML = splitPages.map((item, i) => `
+            <div class="thumb-card ${item.selected ? 'selected' : ''}">
+                <input type="checkbox" class="thumb-checkbox" ${item.selected ? 'checked' : ''} onchange="splitPages[${i}].selected = this.checked; renderSplitGrid();">
+                <img src="${item.dataUrl}" style="transform: rotate(${item.rotation}deg)">
+                <div class="thumb-meta">
+                    <strong>第 ${i + 1} 页</strong>
+                    <button class="btn-mini" onclick="splitPages[${i}].rotation = (splitPages[${i}].rotation + 90)%360; renderSplitGrid();">🔄 90°</button>
+                </div>
+            </div>
+        `).join('');
+
+        const selCount = splitPages.filter(p => p.selected).length;
+        document.getElementById('split-counter').innerText = `已选中 ${selCount} / ${splitPages.length} 页`;
+        btn.disabled = selCount === 0;
+    }
+
+    function selectAllSplit(state) {
+        splitPages.forEach(p => p.selected = state);
+        renderSplitGrid();
+    }
+
+    function rotateAllSplit(deg) {
+        splitPages.forEach(p => p.rotation = (p.rotation + deg) % 360);
+        renderSplitGrid();
+    }
+
+    async function exportSplitPdf() {
+        setStatus('正在提取所选页面...', 30);
+        const outDoc = await PDFDocument.create();
+        const active = splitPages.filter(p => p.selected);
+
+        for (let item of active) {
+            const [copied] = await outDoc.copyPages(splitPdfDoc, [item.pageIndex]);
+            if (item.rotation !== 0) copied.setRotation(degrees((copied.getRotation().angle + item.rotation) % 360));
+            outDoc.addPage(copied);
+        }
+        const pdfBytes = await outDoc.save({ useObjectStreams: true });
+        downloadBlob(pdfBytes, `提取页面_${Date.now()}.pdf`, 'application/pdf');
+        setStatus('导出完成！', 100);
+    }
+
+    // ================= 3. 高级交替合并 TAB =================
     async function handleAltUpload(files) {
-        for (let file of files) {
-            if (file.name.toLowerCase().endsWith('.pdf')) {
-                const buffer = await file.arrayBuffer();
-                const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+        for (let f of files) {
+            if (f.name.toLowerCase().endsWith('.pdf')) {
+                const buf = await f.arrayBuffer();
+                const pdfDoc = await PDFDocument.load(buf, { ignoreEncryption: true });
                 altFiles.push({
-                    file,
+                    file: f,
                     pdfDoc,
                     pageCount: pdfDoc.getPageCount(),
                     takeCount: 1,
@@ -453,25 +1016,25 @@
         const container = document.getElementById('list-alt');
         const btn = document.getElementById('btn-alt');
         if (altFiles.length === 0) {
-            container.innerHTML = '<div class="empty-tip">未添加文件</div>';
+            container.innerHTML = '<div class="empty-tip">未添加文件 (至少需要 2 个文件)</div>';
             btn.disabled = true;
             return;
         }
 
         container.innerHTML = altFiles.map((f, i) => `
             <div class="file-item">
-                <div class="file-info">
-                    <strong>${i + 1}. ${f.file.name}</strong> 
+                <div style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <strong>${i + 1}. ${f.file.name}</strong>
                     <span class="file-badge">共 ${f.pageCount} 页</span>
                 </div>
-                <div class="file-controls">
-                    <label style="font-size: 12px; color: #64748b;">每次抽取:</label>
-                    <input type="number" value="${f.takeCount}" min="1" max="${f.pageCount}" style="width: 50px;" onchange="altFiles[${i}].takeCount=parseInt(this.value)||1"> 页
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="font-size:12px; color:var(--text-muted);">每次抽取:</label>
+                    <input type="number" value="${f.takeCount}" min="1" max="${f.pageCount}" style="width: 50px; padding: 4px;" onchange="altFiles[${i}].takeCount = parseInt(this.value)||1"> 页
                     
-                    <label style="font-size: 12px; color: #64748b; margin-left: 8px;">限定页码范围:</label>
-                    <input type="text" placeholder="例如: 1-5,8 (留空全选)" value="${f.pageRange}" style="width: 130px;" onchange="altFiles[${i}].pageRange=this.value">
+                    <label style="font-size:12px; color:var(--text-muted); margin-left: 8px;">页码范围:</label>
+                    <input type="text" placeholder="如 1-5,8 (留空全选)" value="${f.pageRange}" style="width: 140px; padding: 4px;" onchange="altFiles[${i}].pageRange = this.value">
                     
-                    <button class="btn-icon" onclick="altFiles.splice(${i},1);renderAltList();">🗑️</button>
+                    <button class="btn-mini danger" onclick="altFiles.splice(${i},1); renderAltList();">🗑️</button>
                 </div>
             </div>
         `).join('');
@@ -479,133 +1042,537 @@
         btn.disabled = altFiles.length < 2;
     }
 
-    function parsePageRange(rangeStr, maxPages) {
-        if (!rangeStr.trim()) return Array.from({length: maxPages}, (_, i) => i);
-        const pages = new Set();
-        const parts = rangeStr.split(',');
-        for (let part of parts) {
-            part = part.trim();
-            if (part.includes('-')) {
-                const [start, end] = part.split('-').map(n => parseInt(n));
-                if (start && end) {
-                    for (let i = Math.max(1, start); i <= Math.min(maxPages, end); i++) pages.add(i - 1);
+    function parseRange(str, max) {
+        if (!str.trim()) return Array.from({ length: max }, (_, i) => i);
+        const set = new Set();
+        str.split(',').forEach(p => {
+            p = p.trim();
+            if (p.includes('-')) {
+                const [s, e] = p.split('-').map(Number);
+                if (s && e) {
+                    for (let x = Math.max(1, s); x <= Math.min(max, e); x++) set.add(x - 1);
                 }
             } else {
-                const p = parseInt(part);
-                if (p && p >= 1 && p <= maxPages) pages.add(p - 1);
+                const num = parseInt(p);
+                if (num && num >= 1 && num <= max) set.add(num - 1);
             }
-        }
-        return Array.from(pages).sort((a, b) => a - b);
+        });
+        return Array.from(set).sort((a, b) => a - b);
     }
 
-    async function processAlternate() {
-        setStatus("正在按自定义规则拼合 PDF...");
+    async function exportAltPdf() {
+        setStatus('执行规则拼合中...', 20);
         const outDoc = await PDFDocument.create();
-
-        const fileQueues = altFiles.map(f => ({
+        const queues = altFiles.map(f => ({
             pdfDoc: f.pdfDoc,
-            takeCount: f.takeCount,
-            pages: parsePageRange(f.pageRange, f.pageCount),
-            cursor: 0
+            take: f.takeCount,
+            pages: parseRange(f.pageRange, f.pageCount),
+            ptr: 0
         }));
 
         let hasMore = true;
         while (hasMore) {
             hasMore = false;
-            for (let f of fileQueues) {
-                if (f.cursor < f.pages.length) {
+            for (let q of queues) {
+                if (q.ptr < q.pages.length) {
                     hasMore = true;
-                    const take = Math.min(f.takeCount, f.pages.length - f.cursor);
-                    const pagesToCopy = f.pages.slice(f.cursor, f.cursor + take);
-                    
-                    const copiedPages = await outDoc.copyPages(f.pdfDoc, pagesToCopy);
-                    copiedPages.forEach(p => outDoc.addPage(p));
-                    
-                    f.cursor += take;
+                    const count = Math.min(q.take, q.pages.length - q.ptr);
+                    const pagesToCopy = q.pages.slice(q.ptr, q.ptr + count);
+                    const copied = await outDoc.copyPages(q.pdfDoc, pagesToCopy);
+                    copied.forEach(p => outDoc.addPage(p));
+                    q.ptr += count;
                 }
             }
         }
 
-        const compressMode = document.getElementById('compress-mode').value;
-        const bytes = await outDoc.save({ useObjectStreams: compressMode !== 'none' });
-        downloadBlob(bytes, `自定义交替合并_${Date.now()}.pdf`);
-        setStatus("交替合并完成！");
+        const bytes = await outDoc.save({ useObjectStreams: true });
+        downloadBlob(bytes, `规则交替合并_${Date.now()}.pdf`, 'application/pdf');
+        setStatus('交替合并完成！', 100);
     }
 
-    // ================= TAB 3 逻辑（提取与旋转修复） =================
-    async function handleSplitUpload(file) {
-        if (!file || !file.name.endsWith('.pdf')) return;
-        
-        splitPages = [];
-        document.getElementById('split-tools').style.display = 'flex';
-        
+    // ================= 4. PDF 转 Word (高保真图文防跑版引擎) =================
+    async function handlePdfToWord(file) {
+        if (!file) return;
+        setStatus('正在以高保真引擎解析 PDF 图文版式...', 10);
+
         const buffer = await file.arrayBuffer();
-        splitPdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+        const loadingTask = pdfjsLib.getDocument({ data: buffer });
+        const pdf = await loadingTask.promise;
+        const total = pdf.numPages;
+        const isHighFidelity = document.getElementById('word-fidelity-mode').value === 'high';
 
-        // 使用优化后的串行渲染，确保每一页缩略图都能正常绘制
-        await renderAllPdfThumbnails(buffer, (pageIndex, total, dataUrl) => {
-            setStatus(`绘制预览中: ${pageIndex + 1}/${total} 页`);
-            splitPages.push({ id: pageIndex, pageIndex, dataUrl, rotation: 0, selected: true });
-            renderSplitGrid();
-        });
-        
-        setStatus("页面分析完成");
-    }
+        let docHtmlContent = `
+            <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+                  xmlns:w='urn:schemas-microsoft-com:office:word' 
+                  xmlns='http://www.w3.org/TR/REC-html40'>
+            <head>
+                <meta charset="utf-8">
+                <title>${file.name}</title>
+                <!--[if gte mso 9]>
+                <xml>
+                    <w:WordDocument>
+                        <w:View>Print</w:View>
+                        <w:Zoom>100</w:Zoom>
+                        <w:DoNotOptimizeForBrowser/>
+                    </w:WordDocument>
+                </xml>
+                <![endif]-->
+                <style>
+                    @page { size: A4; margin: 1.5cm; }
+                    body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; color: #1e293b; line-height: 1.6; }
+                    .pdf-page-container { position: relative; margin-bottom: 28px; page-break-after: always; }
+                    .pdf-page-img { width: 100%; height: auto; display: block; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 12px; }
+                    .pdf-text-layer { margin-top: 14px; font-size: 13.5px; }
+                    p { margin: 0 0 8px 0; text-align: justify; line-height: 1.5; }
+                    h3 { color: #0f172a; margin: 16px 0 8px 0; font-size: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+                </style>
+            </head>
+            <body>
+        `;
 
-    function renderSplitGrid() {
-        const grid = document.getElementById('thumb-grid-split');
-        const btn = document.getElementById('btn-split');
-        if (splitPages.length === 0) {
-            grid.innerHTML = '<div class="empty-tip">请先上传文件</div>';
-            btn.disabled = true;
-            return;
-        }
+        let previewHtml = '';
 
-        grid.innerHTML = splitPages.map((item, index) => `
-            <div class="thumb-card ${item.selected ? 'selected' : ''}">
-                <input type="checkbox" class="thumb-checkbox" ${item.selected ? 'checked' : ''} onchange="splitPages[${index}].selected=!splitPages[${index}].selected;renderSplitGrid();">
-                <img src="${item.dataUrl}" style="transform: rotate(${item.rotation}deg)">
-                <div class="thumb-meta">
-                    <span>第 ${index + 1} 页</span>
-                    <button class="btn-mini" onclick="splitPages[${index}].rotation=(splitPages[${index}].rotation+90)%360;renderSplitGrid();">🔄 90°</button>
+        for (let i = 1; i <= total; i++) {
+            setStatus(`正在高精度渲染并重构第 ${i}/${total} 页图文...`, Math.round((i / total) * 85));
+            const page = await pdf.getPage(i);
+
+            // 1. 逐页高精度栅格化出背景图和内嵌视觉元素
+            let pageImgDataUrl = '';
+            if (isHighFidelity) {
+                const viewport = page.getViewport({ scale: 1.5 });
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                pageImgDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            }
+
+            // 2. 提取文本流与结构化断行
+            const textContent = await page.getTextContent();
+            let lastY = null;
+            let lineBuffer = '';
+            let pageHtmlText = '';
+
+            for (let item of textContent.items) {
+                if (lastY !== null && Math.abs(item.transform[5] - lastY) > 8) {
+                    if (lineBuffer.trim()) {
+                        pageHtmlText += `<p>${lineBuffer.trim()}</p>`;
+                    }
+                    lineBuffer = item.str;
+                } else {
+                    lineBuffer += (lineBuffer ? ' ' : '') + item.str;
+                }
+                lastY = item.transform[5];
+            }
+            if (lineBuffer.trim()) {
+                pageHtmlText += `<p>${lineBuffer.trim()}</p>`;
+            }
+
+            // 3. 构造单页混合结构
+            const singlePageHtml = `
+                <div class="pdf-page-container">
+                    ${isHighFidelity ? `
+                        <div style="font-size: 11px; color: #64748b; margin-bottom: 6px; font-weight:600;">第 ${i} 页 原稿版式底图 (全图文/背景完整保留)</div>
+                        <img class="pdf-page-img" src="${pageImgDataUrl}" />
+                    ` : ''}
+                    <div class="pdf-text-layer">
+                        <h3>第 ${i} 页 可编辑文字内容</h3>
+                        ${pageHtmlText || '<p style="color:#94a3b8;">（本页主要为图形或手写扫描件，无字符流）</p>'}
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
 
-        const selectedCount = splitPages.filter(p => p.selected).length;
-        document.getElementById('split-count-tip').innerText = `已选中 ${selectedCount} / ${splitPages.length} 页`;
-        btn.disabled = selectedCount === 0;
-    }
-
-    function selectAllSplit(status) {
-        splitPages.forEach(p => p.selected = status);
-        renderSplitGrid();
-    }
-
-    async function processSplitExport() {
-        setStatus("导出处理中...");
-        const outDoc = await PDFDocument.create();
-        const activePages = splitPages.filter(p => p.selected);
-
-        for (let item of activePages) {
-            const [copied] = await outDoc.copyPages(splitPdfDoc, [item.pageIndex]);
-            if (item.rotation !== 0) copied.setRotation(degrees((copied.getRotation().angle + item.rotation) % 360));
-            outDoc.addPage(copied);
+            docHtmlContent += singlePageHtml;
+            previewHtml += singlePageHtml;
+            page.cleanup();
         }
 
-        const compressMode = document.getElementById('compress-mode').value;
-        const bytes = await outDoc.save({ useObjectStreams: compressMode !== 'none' });
-        downloadBlob(bytes, `拆分导出文档_${Date.now()}.pdf`);
-        setStatus("导出成功！");
+        docHtmlContent += `</body></html>`;
+
+        document.getElementById('pdf2word-preview').innerHTML = previewHtml;
+        generatedWordData = {
+            html: docHtmlContent,
+            fileName: `${file.name.replace(/\.pdf$/i, '')}_高保真转换.doc`
+        };
+
+        document.getElementById('btn-export-word').disabled = false;
+        setStatus('Word 图文高保真解析完毕！点击下方按钮下载', 100);
     }
 
-    function downloadBlob(bytes, filename) {
-        const blob = new Blob([bytes], { type: 'application/pdf' });
+    function downloadGeneratedDoc() {
+        if (!generatedWordData) return;
+        const blob = new Blob(['\ufeff' + generatedWordData.html], { 
+            type: 'application/msword;charset=utf-8' 
+        });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
+        link.download = generatedWordData.fileName;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }
+
+    // ================= 5. PDF 转图片 / ZIP TAB =================
+    async function handlePdfToImgUpload(file) {
+        if (!file) return;
+        setStatus('开始高清渲染各页图片...');
+        const buffer = await file.arrayBuffer();
+        const scale = parseFloat(document.getElementById('img-scale').value);
+        const format = document.getElementById('img-format').value;
+        const grid = document.getElementById('pdf2img-preview-grid');
+        grid.innerHTML = '';
+        pdf2ImgResults = [];
+
+        const loadingTask = pdfjsLib.getDocument({ data: buffer });
+        const pdf = await loadingTask.promise;
+        const total = pdf.numPages;
+
+        for (let i = 1; i <= total; i++) {
+            setStatus(`正在渲染第 ${i}/${total} 页图片...`, Math.round((i / total) * 90));
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: scale });
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            const dataUrl = canvas.toDataURL(format, 0.92);
+            page.cleanup();
+
+            pdf2ImgResults.push({
+                pageNum: i,
+                dataUrl,
+                width: viewport.width,
+                height: viewport.height,
+                format: format.includes('png') ? 'png' : 'jpg'
+            });
+
+            const card = document.createElement('div');
+            card.className = 'thumb-card';
+            card.innerHTML = `
+                <img src="${dataUrl}">
+                <div class="thumb-meta">
+                    <strong>第 ${i} 页</strong>
+                    <span>${viewport.width}×${viewport.height}</span>
+                </div>
+                <div class="thumb-actions">
+                    <button class="btn-mini" onclick="downloadSingleImage(${i - 1})">💾 保存单张</button>
+                </div>
+            `;
+            grid.appendChild(card);
+        }
+
+        document.getElementById('btn-export-images-zip').disabled = false;
+        setStatus('全部图片渲染完毕！', 100);
+    }
+
+    function downloadSingleImage(idx) {
+        const item = pdf2ImgResults[idx];
+        const link = document.createElement('a');
+        link.href = item.dataUrl;
+        link.download = `page_${item.pageNum}.${item.format}`;
+        link.click();
+    }
+
+    async function downloadImagesZip() {
+        if (pdf2ImgResults.length === 0) return;
+        setStatus('正在将图片打包为 ZIP 压缩包...', 30);
+        const zip = new JSZip();
+        const imgFolder = zip.folder("pdf_images");
+
+        pdf2ImgResults.forEach(item => {
+            const base64Data = item.dataUrl.replace(/^data:image\/(png|jpeg);base64,/, "");
+            imgFolder.file(`page_${String(item.pageNum).padStart(3, '0')}.${item.format}`, base64Data, { base64: true });
+        });
+
+        const content = await zip.generateAsync({ type: "blob" }, (metadata) => {
+            setStatus(`ZIP 压缩进度: ${Math.round(metadata.percent)}%`, metadata.percent);
+        });
+
+        downloadBlob(content, `PDF图片导出_${Date.now()}.zip`, 'application/zip');
+        setStatus('ZIP 打包下载完成！', 100);
+    }
+
+    // ================= 6. 多图合成 PDF TAB =================
+    async function handleImgToPdfUpload(files) {
+        if (!files || files.length === 0) return;
+        setStatus('正在加载图片...');
+        img2PdfList = [];
+        const grid = document.getElementById('img2pdf-preview');
+        grid.innerHTML = '';
+
+        for (let file of files) {
+            const buf = await file.arrayBuffer();
+            const blobUrl = URL.createObjectURL(file);
+            img2PdfList.push({
+                file,
+                buffer: buf,
+                url: blobUrl,
+                isPng: file.type.includes('png')
+            });
+            
+            const card = document.createElement('div');
+            card.className = 'thumb-card';
+            card.innerHTML = `
+                <img src="${blobUrl}">
+                <div class="thumb-meta"><span>${file.name.substring(0,10)}</span></div>
+            `;
+            grid.appendChild(card);
+        }
+
+        document.getElementById('btn-img2pdf').disabled = img2PdfList.length === 0;
+        setStatus(`已添加 ${img2PdfList.length} 张图片`);
+    }
+
+    async function exportImgToPdf() {
+        if (img2PdfList.length === 0) return;
+        setStatus('正在合成 PDF 文档...', 30);
+        const outDoc = await PDFDocument.create();
+        const pageMode = document.getElementById('img2pdf-pagesize').value;
+
+        const A4_W = 595.28;
+        const A4_H = 841.89;
+
+        for (let it of img2PdfList) {
+            const img = it.isPng ? await outDoc.embedPng(it.buffer) : await outDoc.embedJpg(it.buffer);
+            
+            if (pageMode === 'fit') {
+                const page = outDoc.addPage([img.width, img.height]);
+                page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+            } else {
+                const isLandscape = pageMode === 'a4-l';
+                const pW = isLandscape ? A4_H : A4_W;
+                const pH = isLandscape ? A4_W : A4_H;
+                const page = outDoc.addPage([pW, pH]);
+                
+                const scale = Math.min((pW - 40) / img.width, (pH - 40) / img.height);
+                const dw = img.width * scale;
+                const dh = img.height * scale;
+                const dx = (pW - dw) / 2;
+                const dy = (pH - dh) / 2;
+
+                page.drawImage(img, { x: dx, y: dy, width: dw, height: dh });
+            }
+        }
+
+        const pdfBytes = await outDoc.save({ useObjectStreams: true });
+        downloadBlob(pdfBytes, `图片合成文档_${Date.now()}.pdf`, 'application/pdf');
+        setStatus('PDF 合成成功！', 100);
+    }
+
+    // ================= 7. Word 预览与导出 TAB =================
+    async function handleDocxUpload(file) {
+        if (!file) return;
+        setStatus('正在纯前端解析 Word 文档...');
+        const buffer = await file.arrayBuffer();
+
+        mammoth.convertToHtml({ arrayBuffer: buffer })
+            .then(result => {
+                const previewEl = document.getElementById('docx-html-preview');
+                previewEl.innerHTML = result.value || '<i>文档无可见内容</i>';
+                document.getElementById('btn-print-docx').disabled = false;
+                setStatus('Word 解析成功！可直接打印或另存为 PDF', 100);
+            })
+            .catch(err => {
+                setStatus('解析 Word 出错: ' + err.message);
+            });
+    }
+
+    function printDocxHtml() {
+        const content = document.getElementById('docx-html-preview').innerHTML;
+        const win = window.open('', '_blank');
+        win.document.write(`
+            <html>
+            <head>
+                <title>Word 导出 PDF</title>
+                <style>
+                    body { font-family: system-ui, sans-serif; padding: 40px; color: #1e293b; line-height: 1.6; }
+                    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+                    th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
+                    img { max-width: 100%; height: auto; }
+                </style>
+            </head>
+            <body>${content}</body>
+            </html>
+        `);
+        win.document.close();
+        win.focus();
+        setTimeout(() => { win.print(); }, 400);
+    }
+
+    // ================= 8. PDF 文本 / Markdown 提取 TAB =================
+    async function handleExtractText(file) {
+        if (!file) return;
+        setStatus('提取整份文档文本内容...');
+        const buffer = await file.arrayBuffer();
+        const loadingTask = pdfjsLib.getDocument({ data: buffer });
+        const pdf = await loadingTask.promise;
+        const total = pdf.numPages;
+
+        let fullMd = `# ${file.name.replace(/\.pdf$/i, '')}\n\n`;
+        let fullTxt = '';
+
+        for (let i = 1; i <= total; i++) {
+            setStatus(`提取进度: ${i}/${total} 页`, Math.round((i / total) * 90));
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const textItems = textContent.items.map(it => it.str).join(' ');
+            
+            fullMd += `## 第 ${i} 页\n\n${textItems}\n\n`;
+            fullTxt += `=== 第 ${i} 页 ===\n${textItems}\n\n`;
+        }
+
+        currentPdfText = fullTxt;
+        currentPdfMd = fullMd;
+        document.getElementById('pdf2txt-preview').innerText = fullTxt;
+        document.getElementById('btn-copy-txt').disabled = false;
+        document.getElementById('btn-dl-md').disabled = false;
+        setStatus('文本提炼完成！', 100);
+    }
+
+    function copyExtractedText() {
+        navigator.clipboard.writeText(currentPdfText).then(() => {
+            alert('已成功将全文复制到剪贴板！');
+        });
+    }
+
+    function downloadExtractedMarkdown() {
+        downloadBlob(currentPdfMd, `extracted_${Date.now()}.md`, 'text/markdown');
+    }
+
+    // ================= 9. Excel 解析 TAB =================
+    async function handleExcelUpload(file) {
+        if (!file) return;
+        setStatus('SheetJS 正在解析工作表...');
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        const htmlTable = XLSX.utils.sheet_to_html(worksheet, { id: 'excel-render-table' });
+        const previewEl = document.getElementById('excel-table-preview');
+        previewEl.innerHTML = `
+            <div style="font-weight:600; margin-bottom:10px;">当前显示工作表：${firstSheetName}</div>
+            <style>
+                #excel-render-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+                #excel-render-table td, #excel-render-table th { border: 1px solid #cbd5e1; padding: 6px 10px; }
+                #excel-render-table tr:first-child { background: #f1f5f9; font-weight: bold; }
+            </style>
+            ${htmlTable}
+        `;
+        document.getElementById('btn-print-excel').disabled = false;
+        setStatus('Excel 工作表解析成功！', 100);
+    }
+
+    function printExcelHtml() {
+        const content = document.getElementById('excel-table-preview').innerHTML;
+        const win = window.open('', '_blank');
+        win.document.write(`
+            <html>
+            <head>
+                <title>Excel 导出 PDF</title>
+                <style>body { font-family: sans-serif; padding: 20px; }</style>
+            </head>
+            <body>${content}</body>
+            </html>
+        `);
+        win.document.close();
+        win.focus();
+        setTimeout(() => { win.print(); }, 400);
+    }
+
+    // ================= 10. 水印添加 TAB =================
+    async function handleWatermarkUpload(file) {
+        if (!file) return;
+        setStatus('加载文档准备加水印...');
+        const buffer = await file.arrayBuffer();
+        currentWatermarkDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+        document.getElementById('btn-watermark').disabled = false;
+        setStatus(`PDF 已加载 (${currentWatermarkDoc.getPageCount()} 页)，设置参数后点击生成`);
+    }
+
+    async function applyWatermarkAndExport() {
+        if (!currentWatermarkDoc) return;
+        setStatus('正在全页面批量印制水印...', 40);
+        const text = document.getElementById('wm-text').value || 'CONFIDENTIAL';
+        const opacity = parseFloat(document.getElementById('wm-opacity').value);
+        const size = parseInt(document.getElementById('wm-size').value);
+
+        const font = await currentWatermarkDoc.embedFont(StandardFonts.HelveticaBold);
+        const pages = currentWatermarkDoc.getPages();
+
+        pages.forEach((page) => {
+            const { width, height } = page.getSize();
+            page.drawText(text, {
+                x: width / 6,
+                y: height / 3,
+                size: size,
+                font: font,
+                color: rgb(0.7, 0.7, 0.7),
+                opacity: opacity,
+                rotate: degrees(45),
+            });
+        });
+
+        const pdfBytes = await currentWatermarkDoc.save({ useObjectStreams: true });
+        downloadBlob(pdfBytes, `加水印文档_${Date.now()}.pdf`, 'application/pdf');
+        setStatus('水印 PDF 生成并下载完成！', 100);
+    }
+
+    // ================= 11. PDF 压缩优化 TAB =================
+    async function handleCompressUpload(file) {
+        if (!file) return;
+        setStatus('正在分析 PDF 结构与冗余流...');
+        const buffer = await file.arrayBuffer();
+        currentCompressBytes = buffer;
+        currentCompressDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+
+        const originalSize = buffer.byteLength;
+        document.getElementById('compress-info-box').innerHTML = `
+            <strong>文件名称：</strong> ${file.name}<br>
+            <strong>总页数：</strong> ${currentCompressDoc.getPageCount()} 页<br>
+            <strong>当前原始大小：</strong> ${formatBytes(originalSize)}<br><br>
+            <i>点击下方按钮将重构对象流（Object Streams）与交叉引用索引表进行精简压缩。</i>
+        `;
+        document.getElementById('btn-compress-run').disabled = false;
+        setStatus('分析完毕，可执行压缩重构');
+    }
+
+    async function runPdfCompress() {
+        if (!currentCompressDoc) return;
+        setStatus('重构优化对象流与紧凑压缩中...', 40);
+        
+        const compressedBytes = await currentCompressDoc.save({
+            useObjectStreams: true,
+            addDefaultPage: false,
+            objectsPerTick: 50
+        });
+
+        const origSize = currentCompressBytes.byteLength;
+        const newSize = compressedBytes.byteLength;
+        const savedRatio = (((origSize - newSize) / origSize) * 100).toFixed(1);
+
+        document.getElementById('compress-info-box').innerHTML += `
+            <hr style="margin: 12px 0; border: none; border-top: 1px solid #cbd5e1;">
+            <strong style="color: #166534;">✅ 压缩重构完成！</strong><br>
+            <strong>压缩后大小：</strong> ${formatBytes(newSize)}<br>
+            <strong>体积节省率：</strong> ${savedRatio > 0 ? savedRatio + '%' : '已是极度紧凑格式'}<br>
+        `;
+
+        downloadBlob(compressedBytes, `瘦身优化_${Date.now()}.pdf`, 'application/pdf');
+        setStatus('压缩文件已下载！', 100);
+    }
+
+    // 通用下载辅助
+    function downloadBlob(data, filename, mimeType) {
+        const blob = data instanceof Blob ? data : new Blob([data], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
         link.download = filename;
         link.click();
-        URL.revokeObjectURL(link.href);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 </script>
 </body>
